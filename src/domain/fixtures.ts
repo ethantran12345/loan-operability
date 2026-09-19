@@ -1,6 +1,8 @@
-import graphJson from '@/fixtures/capability-graph.v7.json'
-import agreementJson from '@/fixtures/agreement.json'
-import extractionsJson from '@/fixtures/extractions.json'
+// Relative paths and import attributes, not the '@/' alias: /api/extract runs this
+// file as plain Node ESM on Vercel, where the Vite alias does not exist.
+import graphJson from '../fixtures/capability-graph.v7.json' with { type: 'json' }
+import agreementJson from '../fixtures/agreement.json' with { type: 'json' }
+import extractionsJson from '../fixtures/extractions.json' with { type: 'json' }
 import type { CapabilityGraph, ClauseType, ExtractedClause, SourceSpan } from './types'
 
 export const capabilityGraph = graphJson as unknown as CapabilityGraph

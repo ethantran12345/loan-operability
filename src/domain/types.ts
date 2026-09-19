@@ -3,28 +3,33 @@
 //   Capability  = a verified path describing how the institution can deliver it (deterministic, versioned).
 // The evaluator never mixes them: extraction produces Requirements, the graph owns Capabilities.
 
-export type Decision = 'PASS' | 'MANUAL' | 'FAIL'
+// The Requirement side of the model is defined ONCE, as Zod schemas in schema.ts,
+// because it is the side that arrives from a model and has to be validated. The
+// types below are inferred from those schemas and re-exported here so the rest of
+// the domain keeps importing from './types'.
+export type {
+  Decision,
+  Operation,
+  ClauseType,
+  Settlement,
+  NoticeChannel,
+  AmountOperator,
+  AmountConstraint,
+  TimingConstraint,
+  InterestConstraint,
+  FeeConstraint,
+  Requirement,
+  SourceSpan,
+  ExtractedClause,
+} from './schema'
 
-export type Operation =
-  | 'receive_notice'
-  | 'fund_draw'
-  | 'book_facility'
-  | 'calculate_interest'
-  | 'collect_fee'
-
-export type ClauseType =
-  | 'borrowing_notice'
-  | 'currency'
-  | 'amount_limit'
-  | 'interest_calculation'
-  | 'repayment_structure'
-  | 'fee'
-  | 'booking_location'
-  | 'approval'
-
-export type Settlement = 'same_day' | 't_plus_1' | 'unspecified'
-export type NoticeChannel = 'portal' | 'email' | 'any' | 'unspecified'
-export type AmountOperator = 'lte' | 'gte' | 'eq'
+import type {
+  ClauseType,
+  Decision,
+  NoticeChannel,
+  Operation,
+  Settlement,
+} from './schema'
 
 /** The role a capability plays in a complete operating path. */
 export type PathRole =
@@ -33,76 +38,6 @@ export type PathRole =
   | 'booking_entity'
   | 'interest_engine'
   | 'fee_engine'
-
-// ---------------------------------------------------------------- requirements
-
-export interface AmountConstraint {
-  operator: AmountOperator
-  value: number
-  unit: string
-}
-
-export interface TimingConstraint {
-  settlement: Settlement
-  /** Contractual cutoff as "HH:MM", or null when the clause is silent. */
-  notice_cutoff: string | null
-  /** IANA zone. null means the clause never said — an unknown the evaluator must not guess past. */
-  timezone: string | null
-  /** Business days of advance notice the contract concedes. 0 = same day. */
-  notice_lead_business_days: number | null
-  /** Business days the contract promises for a manual/operational step. */
-  service_level_business_days: number | null
-}
-
-export interface InterestConstraint {
-  benchmark: string
-  method: string
-  day_count: string | null
-  observation_shift_days: number | null
-  /** Floor in basis points. 0 = zero floor. -50 = -0.50%. */
-  floor_bps: number | null
-}
-
-export interface FeeConstraint {
-  basis: string
-  recipients: number
-  currencies: string[]
-  recalculation_frequency: string | null
-}
-
-export interface Requirement {
-  requirement_id: string
-  operation: Operation
-  currency: string | null
-  amount: AmountConstraint | null
-  timing: TimingConstraint | null
-  /** 'any_lending_office' is a promise of EVERY office, not a free choice for the bank. */
-  booking_entity: string | null
-  notice_channel: NoticeChannel | null
-  required_fields: string[] | null
-  interest: InterestConstraint | null
-  fee: FeeConstraint | null
-  mandatory: boolean
-  confidence: number
-  ambiguities: string[]
-}
-
-export interface SourceSpan {
-  document: string
-  section: string
-  page: number
-}
-
-export interface ExtractedClause {
-  clause_id: string
-  clause_type: ClauseType
-  source_text: string
-  source_span: SourceSpan
-  requirements: Requirement[]
-  /** 'nemotron' when live, 'fixture' when the cached fallback served it. */
-  extraction_source: 'nemotron' | 'fixture'
-  model?: string
-}
 
 // ---------------------------------------------------------------- capabilities
 
