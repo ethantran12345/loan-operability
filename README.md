@@ -4,6 +4,8 @@ A pre-signing compatibility test for loan agreements.
 
 **Live demo:** https://loan-operability.vercel.app
 
+**Source:** https://github.com/ethantran12345/loan-operability
+
 Select a clause from a synthetic credit agreement. Nemotron turns the legal language
 into structured operational requirements. A deterministic engine tests those
 requirements against a fictional bank's versioned capability graph and returns
@@ -54,7 +56,7 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
-npm test         # 82 tests
+npm test         # 95 tests
 npm run typecheck
 npm run build
 npm run dev      # serves the app and /api/extract together
@@ -63,6 +65,43 @@ npm run dev      # serves the app and /api/extract together
 The app works fully with `NVIDIA_API_KEY` unset: `/api/extract` serves the cached
 fixtures and the UI labels them as such. To try the live path, put
 `NVIDIA_API_KEY=...` in `.env.local` (gitignored) and restart `npm run dev`.
+
+## Live extraction, and what happens when it is slow
+
+Extraction runs against NVIDIA's free hosted endpoint, which is queue-based. Measured
+during the hackathon, an identical two-token request returned in either under a
+second or more than twenty, always with HTTP 200. That is queue latency, not an
+authentication, model or parameter problem, so the app is built around it:
+
+- **Hedged calls.** If the first call is silent after 5 s a duplicate is launched,
+  and another at 10 s. The first valid reply wins and the rest are aborted.
+- **One 25 s budget** covers the whole extraction, retry included. Past it, the
+  cached extraction is served with `x-extraction-fallback: timeout`.
+- **Pre-warming.** The page requests all three clauses as the agreement renders, so
+  the queue is waited out while the clause is being read.
+- **Honest labels.** The badge says `Live Nemotron` only when this session's own
+  call produced the requirements on screen. Anything else says `Cached fixture`,
+  gives the reason, and offers to try the live call again.
+- **Diagnostics.** `/api/extract` returns `x-extraction-source`,
+  `x-extraction-fallback`, `x-extraction-attempts`, `x-extraction-calls` and
+  `x-extraction-ms`, and logs one JSON line per request (never the key or the text).
+
+The cached extractions in `src/fixtures/extractions.json` are recordings of real
+replies from the configured Nemotron model that passed every check below.
+
+### What a model reply has to survive
+
+A reply is validated before the evaluator sees it. A rejected reply is sent back
+once with the reason; a second rejection serves the cached extraction.
+
+| Check | Why |
+|---|---|
+| Zod schema | The evaluator's input type and the model's output type are one definition. |
+| Timezone named in the clause | A guessed zone would erase the headline finding. |
+| Missing timezone listed as an ambiguity | An open question has to be reported, not just left null. |
+| Notice contents stated in the clause | Customary fields filled in by the model would turn an unknown into a `PASS`. |
+| Bank field names | `facility` is not `facility_id`; a near miss would read as a missing field. |
+| Not hollow | A requirement that states nothing is not an extraction. |
 
 ## How a decision is made
 
@@ -160,7 +199,7 @@ src/domain/time.ts         Intl-based timezone normalisation
 src/domain/sha256.ts       isomorphic hash for the replay record
 src/domain/schema.ts       Zod schemas — the single source of truth for Requirement types
 src/fixtures/              versioned capability graph, agreement, cached extractions
-src/lib/extract.ts         Nemotron call, one retry, timezone guard, fixture fallback
+src/lib/extract.ts         Nemotron call, hedging, one retry, output guards, fixture fallback
 api/extract.ts             Vercel Function wrapping src/lib/extract.ts
 src/routes/Review.tsx      select a clause, read and correct the extraction
 src/routes/Results.tsx     verdict, conflicts, candidate paths, repair, re-test, proof

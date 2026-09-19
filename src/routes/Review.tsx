@@ -1,12 +1,12 @@
-import { useEffect, useRef } from 'react'
-import { ArrowRight, DatabaseZap, Loader2, MousePointerClick, Radio } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, DatabaseZap, Loader2, MousePointerClick, Radio, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { RequirementCard, parseAmountDraft } from '@/components/review/RequirementCard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { agreement } from '@/domain/fixtures'
 import { cn } from '@/lib/cn'
-import { requestExtraction, sourceDetail } from '@/lib/extractClient'
+import { canRetryLive, extractionFor, sourceDetail } from '@/lib/extractClient'
 import { useReviewSession, type ReviewerEdit } from '@/lib/session'
 
 export function Review() {
@@ -17,17 +17,38 @@ export function Review() {
 
   const selected = agreement.clauses.find((c) => c.clause_id === selectedClauseId) ?? null
   const loading = selected !== null && extraction === null
+  const [slow, setSlow] = useState(false)
+
+  // Ask for all three while the agreement is being read. NVIDIA's hosted queue
+  // can take twenty seconds; this spends that wait before a clause is clicked.
+  useEffect(() => {
+    for (const c of agreement.clauses) void extractionFor(c)
+  }, [])
 
   useEffect(() => {
     if (!selected || extraction) return
-    const controller = new AbortController()
-    requestExtraction(selected, controller.signal)
-      .then(setExtraction)
-      .catch(() => {
-        // Aborted: a different clause was selected before this one came back.
-      })
-    return () => controller.abort()
+    let current = true
+    void extractionFor(selected).then((e) => {
+      // Not current: a different clause was selected before this one came back.
+      if (current) setExtraction(e)
+    })
+    return () => {
+      current = false
+    }
   }, [selected, extraction, setExtraction])
+
+  useEffect(() => {
+    setSlow(false)
+    if (!loading) return
+    const timer = setTimeout(() => setSlow(true), 4_000)
+    return () => clearTimeout(timer)
+  }, [loading, selectedClauseId])
+
+  const retryLive = () => {
+    if (!selected) return
+    void extractionFor(selected, true)
+    session.select(selected.clause_id)
+  }
 
   const choose = (clauseId: string) => {
     if (clauseId === selectedClauseId) return
@@ -143,10 +164,18 @@ export function Review() {
           )}
 
           {loading && selected && (
-            <p className="flex items-center gap-2 rounded-lg border border-rule bg-sheet px-4 py-6 text-sm text-ink-soft">
-              <Loader2 aria-hidden className="size-4 animate-spin" />
-              Extracting Section {selected.source_span.section}…
-            </p>
+            <div className="rounded-lg border border-rule bg-sheet px-4 py-6 text-sm text-ink-soft">
+              <p className="flex items-center gap-2">
+                <Loader2 aria-hidden className="size-4 animate-spin" />
+                Nemotron is extracting Section {selected.source_span.section}…
+              </p>
+              {slow && (
+                <p className="mt-2">
+                  NVIDIA's hosted endpoint is queueing this request. If it has not answered within
+                  about 25 seconds, the cached extraction is shown instead, labelled as cached.
+                </p>
+              )}
+            </div>
           )}
 
           {extraction && selected && (
@@ -167,6 +196,16 @@ export function Review() {
                   )}
                 </div>
                 <p className="mt-1.5 text-sm text-ink-soft">{sourceDetail(extraction)}</p>
+                {canRetryLive(extraction) && (
+                  <button
+                    type="button"
+                    onClick={retryLive}
+                    className="mt-2 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
+                  >
+                    <RefreshCw aria-hidden className="size-3.5" />
+                    Try live Nemotron again
+                  </button>
+                )}
               </div>
 
               {extraction.clause.requirements.map((r) => (

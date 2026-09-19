@@ -1,11 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '../../../api/extract'
-import { agreement, cachedExtraction } from '@/domain/fixtures'
+import { evaluate } from '@/domain/evaluate'
+import { TRANSACTION_TIME, agreement, cachedExtraction, capabilityGraph } from '@/domain/fixtures'
 import { ExtractedClauseSchema, type ExtractRequest } from '@/domain/schema'
 import extractionsJson from '@/fixtures/extractions.json'
-import { DEFAULT_MODEL, NVIDIA_CHAT_URL, extractClause, timezoneIsStated } from '../extract'
+import {
+  DEFAULT_MODEL,
+  NVIDIA_CHAT_URL,
+  bankFieldFor,
+  extractClause,
+  noticeContentsAreStated,
+  timezoneIsStated,
+} from '../extract'
 
 const failClause = agreement.clauses[0]!
+const manualClause = agreement.clauses[1]!
 const passClause = agreement.clauses[2]!
 
 const requestFor = (c: (typeof agreement.clauses)[number]): ExtractRequest => ({
@@ -184,8 +193,234 @@ describe('extractClause', () => {
     const out = await extractClause(requestFor(failClause), { apiKey: 'test-key', fetch })
 
     expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('never names a timezone')
+    expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('timing.timezone "Europe/London"')
     expect(out.fallback_reason).toBe('invalid_output')
+    expect(out.rejections).toHaveLength(2)
+    expect(out.clause.extraction_source).toBe('fixture')
     expect(out.clause.requirements[0]!.timing!.timezone).toBeNull()
+  })
+
+  it('the evaluator never sees the guessed timezone: 2.03(a) stays a FAIL on every reading', async () => {
+    const guessed = cachedExtraction(failClause.clause_id).requirements
+    guessed[0]!.timing!.timezone = 'America/New_York'
+    const reply = completion(JSON.stringify({ requirements: guessed }))
+    const out = await extractClause(requestFor(failClause), {
+      apiKey: 'test-key',
+      fetch: mockFetch(reply.clone(), reply.clone()),
+    })
+
+    const report = evaluate([out.clause], capabilityGraph, TRANSACTION_TIME, agreement.agreement_version)
+    expect(JSON.stringify(out.clause)).not.toContain('America/New_York')
+    expect(report.decision).toBe('FAIL')
+    const conflicts = report.clause_results[0]!.requirement_results[0]!.conflicts.map((c) => c.field)
+    expect(conflicts).toEqual(['amount.value', 'timing.notice_cutoff', 'booking_entity'])
+  })
+
+  it('a missing timezone left out of the ambiguities is sent back, not silently accepted', async () => {
+    const silent = cachedExtraction(failClause.clause_id).requirements
+    silent[0]!.ambiguities = ['Notice channel not specified in clause']
+    const fetch = mockFetch(
+      completion(JSON.stringify({ requirements: silent })),
+      completion(goodReply(failClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(failClause), { apiKey: 'test-key', fetch })
+
+    expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('notice_cutoff "11:00" has timezone null')
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.clause.requirements[0]!.ambiguities.join(' ')).toMatch(/time ?zone/i)
+  })
+
+  it('a guessed timezone corrected on the retry is accepted as live output', async () => {
+    const guessed = cachedExtraction(failClause.clause_id).requirements
+    guessed[0]!.timing!.timezone = 'Europe/London'
+    const fetch = mockFetch(
+      completion(JSON.stringify({ requirements: guessed })),
+      completion(goodReply(failClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(failClause), { apiKey: 'test-key', fetch })
+
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.attempts).toBe(2)
+    expect(out.clause.requirements[0]!.timing!.timezone).toBeNull()
+  })
+
+  it('invented notice fields are rejected: an unknown must not become a PASS', async () => {
+    // 2.03(a) never says what a Borrowing Notice must specify. A model that lists
+    // the customary fields would erase a MANUAL gap the evaluator has to report.
+    const invented = cachedExtraction(failClause.clause_id).requirements
+    invented[0]!.required_fields = ['facility_id', 'amount', 'currency', 'value_date']
+    const reply = completion(JSON.stringify({ requirements: invented }))
+    const fetch = mockFetch(reply.clone(), reply.clone())
+    const out = await extractClause(requestFor(failClause), { apiKey: 'test-key', fetch })
+
+    expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('never says what a notice must specify')
+    expect(out.fallback_reason).toBe('invalid_output')
+    expect(out.clause.requirements[0]!.required_fields).toBeNull()
+  })
+
+  it('stated notice fields are accepted', async () => {
+    for (const clause of [manualClause, passClause]) {
+      const out = await extractClause(requestFor(clause), {
+        apiKey: 'test-key',
+        fetch: mockFetch(completion(goodReply(clause.clause_id))),
+      })
+      expect(out.clause.extraction_source).toBe('nemotron')
+      expect(out.clause.requirements[0]!.required_fields).toEqual([
+        'facility_id',
+        'amount',
+        'currency',
+        'value_date',
+      ])
+    }
+  })
+})
+
+describe('hollow requirements', () => {
+  it('a requirement that states nothing is rejected rather than evaluated', async () => {
+    const hollow = {
+      requirement_id: 'req-002',
+      operation: 'fund_draw',
+      currency: null,
+      amount: null,
+      timing: {
+        settlement: 'unspecified',
+        notice_cutoff: null,
+        timezone: null,
+        notice_lead_business_days: null,
+        service_level_business_days: null,
+      },
+      booking_entity: null,
+      notice_channel: null,
+      required_fields: null,
+      interest: null,
+      fee: null,
+      mandatory: false,
+      confidence: 0,
+      ambiguities: [],
+    }
+    const fetch = mockFetch(
+      completion(JSON.stringify({ requirements: [hollow] })),
+      completion(goodReply(manualClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(manualClause), { apiKey: 'test-key', fetch })
+
+    expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('state nothing the clause says: req-002')
+    expect(out.attempts).toBe(2)
+    expect(out.clause.requirements[0]!.notice_channel).toBe('email')
+  })
+})
+
+describe('notice field names', () => {
+  it('a near-miss field name is sent back for correction, not compared as a missing field', async () => {
+    const misnamed = cachedExtraction(manualClause.clause_id).requirements
+    misnamed[0]!.required_fields = ['facility', 'principal_amount', 'currency', 'requested_value_date']
+    const fetch = mockFetch(
+      completion(JSON.stringify({ requirements: misnamed })),
+      completion(goodReply(manualClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(manualClause), { apiKey: 'test-key', fetch })
+
+    const feedback = bodyOf(fetch, 1).messages.at(-1)!.content
+    expect(feedback).toContain('"facility" must be written "facility_id"')
+    expect(feedback).toContain('"principal_amount" must be written "amount"')
+    expect(feedback).toContain('"requested_value_date" must be written "value_date"')
+    expect(feedback).not.toContain('"currency" must')
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.attempts).toBe(2)
+  })
+
+  it('leaves the bank\'s own names and genuinely new fields alone', () => {
+    expect(bankFieldFor('facility_id')).toBeNull()
+    expect(bankFieldFor('interest_period')).toBeNull()
+    expect(bankFieldFor('facility')).toBe('facility_id')
+  })
+})
+
+describe('time budget and hedging', () => {
+  afterEach(() => vi.useRealTimers())
+
+  /** A call that never answers, but does honour its abort signal. */
+  const stalled = (_url: unknown, init?: RequestInit) =>
+    new Promise<Response>((_, reject) => {
+      init!.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+    })
+
+  it('a silent endpoint: duplicates are launched, then the fixture is served as a timeout', async () => {
+    vi.useFakeTimers()
+    const fetch = vi.fn<typeof globalThis.fetch>(stalled)
+    const pending = extractClause(requestFor(failClause), {
+      apiKey: 'test-key',
+      fetch,
+      timeoutMs: 20_000,
+      hedgeAfterMs: [5_000, 10_000],
+    })
+    await vi.advanceTimersByTimeAsync(20_000)
+    const out = await pending
+
+    expect(out.fallback_reason).toBe('timeout')
+    expect(out.calls).toBe(3)
+    expect(out.upstream_ms).toBe(20_000)
+    expect(out.clause.extraction_source).toBe('fixture')
+    for (const call of fetch.mock.calls) expect(call[1]!.signal!.aborted).toBe(true)
+  })
+
+  it('a stalled first call: the duplicate answers and is served as live output', async () => {
+    vi.useFakeTimers()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(stalled)
+      .mockResolvedValueOnce(completion(goodReply(passClause.clause_id)))
+    const pending = extractClause(requestFor(passClause), {
+      apiKey: 'test-key',
+      fetch,
+      hedgeAfterMs: [5_000],
+    })
+    await vi.advanceTimersByTimeAsync(5_000)
+    const out = await pending
+
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.fallback_reason).toBeNull()
+    expect(out.attempts).toBe(1)
+    expect(out.calls).toBe(2)
+    expect(fetch.mock.calls[0]![1]!.signal!.aborted).toBe(true)
+  })
+
+  it('a throttled duplicate does not sink a call that is still running', async () => {
+    vi.useFakeTimers()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(completion(goodReply(passClause.clause_id))), 8_000),
+          ),
+      )
+      .mockResolvedValueOnce(completion('slow down', 429))
+    const pending = extractClause(requestFor(passClause), {
+      apiKey: 'test-key',
+      fetch,
+      hedgeAfterMs: [5_000],
+    })
+    await vi.advanceTimersByTimeAsync(8_000)
+    const out = await pending
+
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.calls).toBe(2)
+  })
+
+  it('a fast reply launches no duplicate', async () => {
+    const fetch = mockFetch(completion(goodReply(passClause.clause_id)))
+    const out = await extractClause(requestFor(passClause), { apiKey: 'test-key', fetch })
+    expect(out.calls).toBe(1)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('noticeContentsAreStated', () => {
+  it('is true only for the clauses that say what a notice must specify', () => {
+    expect(noticeContentsAreStated(failClause.source_text)).toBe(false)
+    expect(noticeContentsAreStated(manualClause.source_text)).toBe(true)
+    expect(noticeContentsAreStated(passClause.source_text)).toBe(true)
   })
 })
 
@@ -243,6 +478,9 @@ describe('POST /api/extract', () => {
 
     const res = await post(requestFor(passClause))
     expect(res.headers.get('x-extraction-fallback')).toBe('none')
+    expect(res.headers.get('x-extraction-attempts')).toBe('1')
+    expect(res.headers.get('x-extraction-calls')).toBe('1')
+    expect(res.headers.get('x-extraction-ms')).toMatch(/^\d+$/)
     const parsed = ExtractedClauseSchema.strict().safeParse(await res.json())
     expect(parsed.success).toBe(true)
     expect(parsed.data!.extraction_source).toBe('nemotron')

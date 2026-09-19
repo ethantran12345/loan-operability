@@ -9,6 +9,7 @@ import type { ExtractedClause } from '@/domain/types'
  */
 export type FallbackReason =
   | 'no_api_key'
+  | 'timeout'
   | 'network_error'
   | 'invalid_output'
   | 'api_unreachable'
@@ -23,6 +24,32 @@ const localFixture = (clauseId: string): Extraction => ({
   clause: { ...cachedExtraction(clauseId), extraction_source: 'fixture' },
   fallback_reason: 'api_unreachable',
 })
+
+/** Longer than the server's own budget, so the server's reason wins when it has one. */
+const CLIENT_TIMEOUT_MS = 35_000
+
+const inFlight = new Map<string, Promise<Extraction>>()
+
+/**
+ * The extraction for a clause, requested at most once per page load. Review calls
+ * this for every clause as the agreement renders, so NVIDIA's queue is waited out
+ * while the reader is still reading. The result is no less live for being early:
+ * it is this session's own call, and it is labelled by what actually served it.
+ *
+ * `fresh` drops the remembered result and asks again.
+ */
+export function extractionFor(clause: AgreementClause, fresh = false): Promise<Extraction> {
+  const known = inFlight.get(clause.clause_id)
+  if (known && !fresh) return known
+  const request = requestExtraction(clause, AbortSignal.timeout(CLIENT_TIMEOUT_MS))
+  inFlight.set(clause.clause_id, request)
+  return request
+}
+
+/** True when asking again could plausibly produce a live result. */
+export function canRetryLive(e: Extraction): boolean {
+  return e.clause.extraction_source === 'fixture' && e.fallback_reason !== 'no_api_key'
+}
 
 /**
  * Ask /api/extract for a clause. The demo must work with no backend at all, so
@@ -56,8 +83,7 @@ export async function requestExtraction(
         ? null
         : ((header && header !== 'none' ? header : 'invalid_output') as FallbackReason)
     return { clause: parsed.data, fallback_reason }
-  } catch (err) {
-    if (signal.aborted) throw err
+  } catch {
     return localFixture(clause.clause_id)
   }
 }
@@ -65,11 +91,13 @@ export async function requestExtraction(
 /** One honest sentence about where the extraction on screen came from. */
 export function sourceDetail(e: Extraction): string {
   if (e.clause.extraction_source === 'nemotron') {
-    return `Extracted live by ${e.clause.model ?? 'Nemotron'} for this request.`
+    return `Extracted live by ${e.clause.model ?? 'Nemotron'} during this session.`
   }
   const cached = `Cached extraction${e.clause.model ? ` (recorded from ${e.clause.model})` : ''}.`
   const reason = e.fallback_reason
   if (reason === 'no_api_key') return `${cached} No live call was made: NVIDIA_API_KEY is not set.`
+  if (reason === 'timeout')
+    return `${cached} Nemotron did not answer within the time limit, so no live result is shown.`
   if (reason === 'network_error') return `${cached} The live call to Nemotron did not complete.`
   if (reason === 'invalid_output')
     return `${cached} Nemotron's output failed schema validation twice, so it was discarded.`
