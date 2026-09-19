@@ -1,0 +1,354 @@
+{
+  "version": 7,
+  "institution": "Meridian Commercial Bank (fictional)",
+  "disclaimer": "Synthetic capability data built for a hackathon demonstration. Not a description of any real bank's operations.",
+  "evidence_freshness_days": 180,
+  "lending_offices": [
+    { "entity": "london", "timezone": "Europe/London" },
+    { "entity": "new_york", "timezone": "America/New_York" },
+    { "entity": "toronto", "timezone": "America/Toronto" }
+  ],
+  "capabilities": [
+    {
+      "capability_id": "cap-001",
+      "role": "notice_intake",
+      "operation": "receive_notice",
+      "product": "syndicated_loan",
+      "label": "Portal borrowing-notice intake",
+      "constraints": {
+        "notice_channel": ["portal"],
+        "required_fields": ["facility_id", "amount", "currency", "value_date"]
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Notice intake and validation",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-002",
+      "role": "notice_intake",
+      "operation": "receive_notice",
+      "product": "syndicated_loan",
+      "label": "Emailed notice with manual authentication",
+      "constraints": {
+        "notice_channel": ["email"],
+        "required_fields": ["facility_id", "amount", "currency", "value_date"]
+      },
+      "outcome": "manual",
+      "manual_path": {
+        "owner": "loan operations",
+        "sla_business_days": 1,
+        "description": "Callback authentication of an emailed borrowing notice against the authorised-signatory list"
+      },
+      "requires_approval": ["loan operations", "product owner"],
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Non-portal notice exceptions",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-009",
+      "role": "funding_window",
+      "operation": "fund_draw",
+      "product": "syndicated_loan",
+      "label": "Same-day USD funding window",
+      "constraints": {
+        "currency": ["USD"],
+        "settlement": "same_day",
+        "max_amount": 50000000,
+        "amount_increment": 100000,
+        "cutoff": "10:30",
+        "timezone": "America/New_York",
+        "notice_lead_business_days": 0
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "USD funding",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-010",
+      "role": "funding_window",
+      "operation": "fund_draw",
+      "product": "syndicated_loan",
+      "label": "Same-day EUR funding window",
+      "constraints": {
+        "currency": ["EUR"],
+        "settlement": "same_day",
+        "max_amount": 25000000,
+        "amount_increment": 100000,
+        "cutoff": "09:30",
+        "timezone": "Europe/London",
+        "notice_lead_business_days": 0
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "EUR funding",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-011",
+      "role": "funding_window",
+      "operation": "fund_draw",
+      "product": "syndicated_loan",
+      "label": "Same-day GBP funding window",
+      "constraints": {
+        "currency": ["GBP"],
+        "settlement": "same_day",
+        "max_amount": 20000000,
+        "amount_increment": 100000,
+        "cutoff": "09:30",
+        "timezone": "Europe/London",
+        "notice_lead_business_days": 0
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "GBP funding",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-012",
+      "role": "funding_window",
+      "operation": "fund_draw",
+      "product": "syndicated_loan",
+      "label": "T-1 notice funding window",
+      "constraints": {
+        "currency": ["USD", "EUR", "GBP"],
+        "settlement": "t_plus_1",
+        "max_amount": 500000000,
+        "amount_increment": 100000,
+        "cutoff": "16:00",
+        "timezone": "Europe/London",
+        "notice_lead_business_days": 1
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Advance-notice funding",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-024",
+      "role": "booking_entity",
+      "operation": "book_facility",
+      "product": "syndicated_loan",
+      "label": "New York booking entity",
+      "constraints": {
+        "currency": ["USD"],
+        "booking_entity": ["new_york"]
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Booking entities and currency pairs",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-025",
+      "role": "booking_entity",
+      "operation": "book_facility",
+      "product": "syndicated_loan",
+      "label": "London booking entity",
+      "constraints": {
+        "currency": ["EUR", "GBP"],
+        "booking_entity": ["london"]
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Booking entities and currency pairs",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-026",
+      "role": "booking_entity",
+      "operation": "book_facility",
+      "product": "syndicated_loan",
+      "label": "Toronto booking entity",
+      "constraints": {
+        "currency": ["CAD"],
+        "booking_entity": ["toronto"]
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Booking entities and currency pairs",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-014",
+      "role": "interest_engine",
+      "operation": "calculate_interest",
+      "product": "syndicated_loan",
+      "label": "SOFR rate engine",
+      "constraints": {
+        "benchmark": ["SOFR"],
+        "method": ["simple_daily", "compounded_in_arrears"],
+        "day_count": ["ACT/360"],
+        "max_observation_shift_days": 5,
+        "allowed_floor_bps": [0]
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Interest calculation - SOFR",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-015",
+      "role": "interest_engine",
+      "operation": "calculate_interest",
+      "product": "syndicated_loan",
+      "label": "EURIBOR rate engine",
+      "constraints": {
+        "benchmark": ["EURIBOR"],
+        "method": ["screen_rate", "compounded_in_arrears"],
+        "day_count": ["ACT/360"],
+        "max_observation_shift_days": 5,
+        "allowed_floor_bps": [0]
+      },
+      "outcome": "supported",
+      "manual_path": {
+        "owner": "loan servicing",
+        "sla_business_days": 3,
+        "description": "Manual configuration of a non-standard rate parameter"
+      },
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Interest calculation - EURIBOR",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-022",
+      "role": "fee_engine",
+      "operation": "collect_fee",
+      "product": "syndicated_loan",
+      "label": "Standard fee engine",
+      "constraints": {
+        "fee_basis": ["fixed_annual_rate", "commitment", "ticking"],
+        "max_fee_recipients": 1,
+        "max_fee_currencies": 1,
+        "min_service_level_business_days": 2
+      },
+      "outcome": "supported",
+      "manual_path": null,
+      "requires_approval": null,
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Commitment and ticking fees",
+        "last_verified": "2026-09-09"
+      }
+    },
+    {
+      "capability_id": "cap-023",
+      "role": "fee_engine",
+      "operation": "collect_fee",
+      "product": "syndicated_loan",
+      "label": "Manual fee calculation and allocation",
+      "constraints": {
+        "fee_basis": ["external_esg_metric", "fixed_annual_rate", "commitment", "ticking"],
+        "max_fee_recipients": 8,
+        "max_fee_currencies": 4,
+        "min_service_level_business_days": 3
+      },
+      "outcome": "manual",
+      "manual_path": {
+        "owner": "loan operations",
+        "sla_business_days": 3,
+        "description": "Hand calculation of a metric-linked fee and allocation across recipients"
+      },
+      "requires_approval": ["loan operations", "product owner"],
+      "effective_from": "2025-01-01",
+      "effective_to": null,
+      "evidence": {
+        "source": "synthetic operating procedure",
+        "section": "Non-standard fee handling",
+        "last_verified": "2026-09-09"
+      }
+    }
+  ],
+  "approvals": [
+    {
+      "approval_id": "apr-018",
+      "role": "loan operations",
+      "threshold": 100000000,
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "self_approval": false
+    },
+    {
+      "approval_id": "apr-019",
+      "role": "product owner",
+      "threshold": 500000000,
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "self_approval": false
+    },
+    {
+      "approval_id": "apr-020",
+      "role": "regional delegate",
+      "threshold": 1000000000,
+      "effective_from": "2025-01-01",
+      "effective_to": "2026-06-30",
+      "self_approval": false
+    }
+  ]
+}

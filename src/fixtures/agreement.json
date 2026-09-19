@@ -1,0 +1,33 @@
+{
+  "agreement_version": "draft-7",
+  "document": "synthetic-credit-agreement",
+  "title": "Synthetic Senior Secured Revolving Credit Agreement",
+  "disclaimer": "Drafted for a hackathon demonstration. Not a real credit agreement and not based on any real transaction.",
+  "transaction_time": "2026-09-22T14:00:00Z",
+  "clauses": [
+    {
+      "clause_id": "credit-agreement-2.03-a",
+      "clause_type": "borrowing_notice",
+      "scenario": "FAIL",
+      "headline": "Same-day EUR draw of EUR 40 million",
+      "source_span": { "document": "synthetic-credit-agreement", "section": "2.03(a)", "page": 47 },
+      "source_text": "The Borrower may, on any Business Day, request an advance denominated in Euro in an aggregate principal amount of up to EUR 40,000,000 for same-day settlement, provided that the related Borrowing Notice is delivered by 11:00 A.M. on such Business Day, and such advance may be made available through any Lending Office of the Administrative Agent."
+    },
+    {
+      "clause_id": "credit-agreement-2.02-c",
+      "clause_type": "borrowing_notice",
+      "scenario": "MANUAL",
+      "headline": "Borrowing notices delivered by email",
+      "source_span": { "document": "synthetic-credit-agreement", "section": "2.02(c)", "page": 44 },
+      "source_text": "A Borrowing Notice shall be deemed validly given if delivered by electronic mail to the Administrative Agent, and the Administrative Agent shall authenticate and act upon any such notice within one Business Day of receipt. Each Borrowing Notice shall specify the Facility, the principal amount, the currency and the requested value date."
+    },
+    {
+      "clause_id": "credit-agreement-2.03-b",
+      "clause_type": "borrowing_notice",
+      "scenario": "PASS",
+      "headline": "Same-day EUR draw of EUR 20 million through London",
+      "source_span": { "document": "synthetic-credit-agreement", "section": "2.03(b)", "page": 48 },
+      "source_text": "The Borrower may request an advance denominated in Euro in an aggregate principal amount of up to EUR 20,000,000 for same-day settlement, provided that the related Borrowing Notice is delivered through the Agent's electronic portal by 9:30 A.M. London time on such Business Day and the advance is booked through the London Lending Office."
+    }
+  ]
+}

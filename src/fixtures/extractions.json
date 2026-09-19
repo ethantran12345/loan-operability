@@ -1,0 +1,101 @@
+{
+  "note": "Cached Nemotron extractions. Served verbatim when /api/extract is unreachable or returns unparseable output, so the demo never depends on a live model call. extraction_source records which path produced the result.",
+  "credit-agreement-2.03-a": {
+    "clause_id": "credit-agreement-2.03-a",
+    "clause_type": "borrowing_notice",
+    "source_text": "The Borrower may, on any Business Day, request an advance denominated in Euro in an aggregate principal amount of up to EUR 40,000,000 for same-day settlement, provided that the related Borrowing Notice is delivered by 11:00 A.M. on such Business Day, and such advance may be made available through any Lending Office of the Administrative Agent.",
+    "source_span": { "document": "synthetic-credit-agreement", "section": "2.03(a)", "page": 47 },
+    "extraction_source": "fixture",
+    "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+    "requirements": [
+      {
+        "requirement_id": "req-001",
+        "operation": "fund_draw",
+        "currency": "EUR",
+        "amount": { "operator": "lte", "value": 40000000, "unit": "EUR" },
+        "timing": {
+          "settlement": "same_day",
+          "notice_cutoff": "11:00",
+          "timezone": null,
+          "notice_lead_business_days": 0,
+          "service_level_business_days": null
+        },
+        "booking_entity": "any_lending_office",
+        "notice_channel": "unspecified",
+        "required_fields": null,
+        "interest": null,
+        "fee": null,
+        "mandatory": true,
+        "confidence": 0.94,
+        "ambiguities": [
+          "The clause states 11:00 A.M. but never names a timezone",
+          "The clause does not state the delivery channel for the Borrowing Notice"
+        ]
+      }
+    ]
+  },
+  "credit-agreement-2.02-c": {
+    "clause_id": "credit-agreement-2.02-c",
+    "clause_type": "borrowing_notice",
+    "source_text": "A Borrowing Notice shall be deemed validly given if delivered by electronic mail to the Administrative Agent, and the Administrative Agent shall authenticate and act upon any such notice within one Business Day of receipt. Each Borrowing Notice shall specify the Facility, the principal amount, the currency and the requested value date.",
+    "source_span": { "document": "synthetic-credit-agreement", "section": "2.02(c)", "page": 44 },
+    "extraction_source": "fixture",
+    "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+    "requirements": [
+      {
+        "requirement_id": "req-010",
+        "operation": "receive_notice",
+        "currency": null,
+        "amount": null,
+        "timing": {
+          "settlement": "unspecified",
+          "notice_cutoff": null,
+          "timezone": null,
+          "notice_lead_business_days": null,
+          "service_level_business_days": 1
+        },
+        "booking_entity": null,
+        "notice_channel": "email",
+        "required_fields": ["facility_id", "amount", "currency", "value_date"],
+        "interest": null,
+        "fee": null,
+        "mandatory": true,
+        "confidence": 0.91,
+        "ambiguities": [
+          "\"Authenticate\" is not defined, so the required identity check is inferred from operating procedure"
+        ]
+      }
+    ]
+  },
+  "credit-agreement-2.03-b": {
+    "clause_id": "credit-agreement-2.03-b",
+    "clause_type": "borrowing_notice",
+    "source_text": "The Borrower may request an advance denominated in Euro in an aggregate principal amount of up to EUR 20,000,000 for same-day settlement, provided that the related Borrowing Notice is delivered through the Agent's electronic portal by 9:30 A.M. London time on such Business Day and the advance is booked through the London Lending Office.",
+    "source_span": { "document": "synthetic-credit-agreement", "section": "2.03(b)", "page": 48 },
+    "extraction_source": "fixture",
+    "model": "nvidia/llama-3.3-nemotron-super-49b-v1",
+    "requirements": [
+      {
+        "requirement_id": "req-020",
+        "operation": "fund_draw",
+        "currency": "EUR",
+        "amount": { "operator": "lte", "value": 20000000, "unit": "EUR" },
+        "timing": {
+          "settlement": "same_day",
+          "notice_cutoff": "09:30",
+          "timezone": "Europe/London",
+          "notice_lead_business_days": 0,
+          "service_level_business_days": null
+        },
+        "booking_entity": "london",
+        "notice_channel": "portal",
+        "required_fields": ["facility_id", "amount", "currency", "value_date"],
+        "interest": null,
+        "fee": null,
+        "mandatory": true,
+        "confidence": 0.97,
+        "ambiguities": []
+      }
+    ]
+  }
+}
