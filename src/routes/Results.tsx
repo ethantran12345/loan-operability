@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, Check, RefreshCw, Wrench } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
+import { BenchmarkPanel } from '@/components/results/BenchmarkPanel'
 import { CandidatePaths, ChecksTable } from '@/components/results/CandidatePaths'
 import { Citation, Findings } from '@/components/results/Findings'
-import { GraphVersionSelector } from '@/components/results/GraphVersion'
+import { GRAPH_VERSIONS, GraphVersionSelector } from '@/components/results/GraphVersion'
 import { DECISION_TEXT, Verdict } from '@/components/results/Verdict'
 import { Badge, Id } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -104,12 +105,16 @@ export function Results() {
   const sameRequirementHash =
     new Set(versionReports.map((v) => v.report.replay.requirement_bundle_hash)).size === 1
 
+  const latestVersion = GRAPH_VERSIONS[GRAPH_VERSIONS.length - 1]!
+
   const switchVersion = (version: number) => {
     if (version === graphVersion) return
     setGraphVersion(version)
     setSeenVersions((seen) => (seen.includes(version) ? seen : [...seen, version].sort((a, b) => a - b)))
     // A repair plan is drafted against one graph; it does not carry to another.
     setStage('tested')
+    // The switch can come from the benchmark panel, further down the page.
+    requestAnimationFrame(() => verdictsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
 
   return (
@@ -219,7 +224,17 @@ export function Results() {
       <Section n={3} title="Candidate capability paths">
         <div className="space-y-6">
           {plans.map(({ req, result }) => (
-            <CandidatePaths key={req.requirement_id} result={result} />
+            <div key={req.requirement_id}>
+              {meta?.benchmark && (
+                <BenchmarkPanel
+                  result={result}
+                  graph={graph}
+                  renewedVersion={graphVersion < latestVersion ? latestVersion : null}
+                  onSeeRenewal={switchVersion}
+                />
+              )}
+              <CandidatePaths result={result} />
+            </div>
           ))}
         </div>
       </Section>
