@@ -2,6 +2,8 @@
 
 A pre-signing compatibility test for loan agreements.
 
+**Live demo:** https://loan-operability.vercel.app
+
 Select a clause from a synthetic credit agreement. Nemotron turns the legal language
 into structured operational requirements. A deterministic engine tests those
 requirements against a fictional bank's versioned capability graph and returns
@@ -22,8 +24,34 @@ institution's operations, and nothing here is legal or financial advice.
 | Domain types, capability graph, fixtures | done |
 | Deterministic evaluator + path search | done, 65 tests green |
 | Repair generator (`FAIL -> repair -> PASS`) | done |
-| `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, mocked-fetch tests; not yet run against a live key |
+| `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, verified against the live hosted NVIDIA endpoint |
 | Review + Results routes | done |
+
+## Team
+
+- Ethan Tran — solo hacker
+
+## Hackathon build provenance
+
+This repository was created for SteelHacks XIII after hacking began at 11:00 AM
+EDT on September 19, 2026. The first commit is timestamped September 19, 2026 at
+1:33 PM EDT. The agreement, bank capability data, and operational evidence shown
+in the demo are synthetic fixtures created for this project.
+
+## Tools and AI disclosure
+
+The project uses and credits the following tools:
+
+- **NVIDIA Nemotron 3.5 Lightning 30B A3B** — runtime extraction of legal clauses
+  into typed operational requirements. Nemotron does not issue the final verdict.
+- **OpenAI Codex** and **Anthropic Claude** — development assistants used during
+  the hackathon for implementation, debugging, testing, documentation, and review.
+- **React, TypeScript, Vite, Zod, Vitest, Tailwind CSS, and Lucide** — application
+  and testing libraries.
+- **Vercel** — hosting and the server-side extraction function.
+
+All final behavior is represented by the code and tests in this repository. The
+deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
 npm test         # 82 tests
