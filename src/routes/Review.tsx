@@ -9,6 +9,9 @@ import { cn } from '@/lib/cn'
 import { canRetryLive, extractionFor, sourceDetail } from '@/lib/extractClient'
 import { useReviewSession, type ReviewerEdit } from '@/lib/session'
 
+const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six']
+const CLAUSE_COUNT = COUNT_WORDS[agreement.clauses.length] ?? String(agreement.clauses.length)
+
 export function Review() {
   const navigate = useNavigate()
   const session = useReviewSession()
@@ -19,7 +22,7 @@ export function Review() {
   const loading = selected !== null && extraction === null
   const [slow, setSlow] = useState(false)
 
-  // Ask for all three while the agreement is being read. NVIDIA's hosted queue
+  // Ask for every clause while the agreement is being read. NVIDIA's hosted queue
   // can take twenty seconds; this spends that wait before a clause is clicked.
   useEffect(() => {
     for (const c of agreement.clauses) void extractionFor(c)
@@ -95,7 +98,7 @@ export function Review() {
           </h1>
           <p className="mt-3 flex items-center gap-2 text-sm text-ink-soft">
             <MousePointerClick aria-hidden className="size-4 shrink-0" />
-            Three clauses are under review. Select one to extract its operational requirements.
+            {CLAUSE_COUNT} clauses are under review. Select one to extract its operational requirements.
           </p>
 
           <ol className="mt-6 space-y-3">
@@ -122,9 +125,16 @@ export function Review() {
                       </span>
                       <span className="text-xs text-ink-faint">page {c.source_span.page}</span>
                     </span>
-                    <span className="mt-0.5 block text-sm font-medium text-ink-soft">
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-ink-soft">
                       {c.headline}
+                      {c.benchmark && <Badge tone="accent">benchmark</Badge>}
                     </span>
+                    {c.benchmark && (
+                      <span className="mt-1 block text-sm text-ink-soft italic">
+                        Read as prose against the rulebook, New York supports this draw with a
+                        Treasury exception. The decisive fact is a date.
+                      </span>
+                    )}
                     <span
                       id={`${c.clause_id}-text`}
                       className="mt-3 block font-serif text-[1.05rem] leading-relaxed text-pretty"
