@@ -56,7 +56,7 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
-npm test         # 95 tests
+npm test         # 96 tests
 npm run typecheck
 npm run build
 npm run dev      # serves the app and /api/extract together

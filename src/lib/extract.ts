@@ -66,7 +66,7 @@ Rules
 5. "any Lending Office" means booking_entity "any_lending_office". A single named office is its lowercase city, for example "london".
 6. Clock times are 24-hour "HH:MM". Amounts are plain numbers with no separators.
 7. "confidence" is your own 0 to 1 confidence that the requirement matches the clause text.
-8. "operation" is what the clause obliges the bank to DO, not which document it mentions. Emit ONE requirement per clause unless it holds clearly separate obligations.
+8. "operation" is what the clause obliges the bank to DO, not which document it mentions. Emit ONE requirement per clause unless it holds clearly separate obligations. "requirements" is never empty: a clause about how notices are given is a "receive_notice" requirement even though no money moves.
    - "fund_draw": the Borrower may request or draw an advance (the clause gives an amount, a currency or a settlement date). A notice deadline attached to that advance belongs to the same fund_draw requirement.
    - "receive_notice": the clause is only about how a notice is validly delivered, authenticated or acted upon, and grants no advance.
    - "book_facility": only where a facility is booked. "calculate_interest": rate, benchmark or day count. "collect_fee": fees.
@@ -183,6 +183,14 @@ export function validateModelOutput(
     parsed !== null && typeof parsed === 'object' && 'requirements' in parsed
       ? (parsed as { requirements: unknown }).requirements
       : undefined
+
+  if (Array.isArray(requirements) && requirements.length === 0) {
+    return {
+      ok: false,
+      error:
+        '"requirements" was empty. Every clause obliges the bank to do something. A clause about how a notice is delivered, authenticated, acted upon or what it must specify is one "receive_notice" requirement. Extract it from the clause text, following every rule.',
+    }
+  }
 
   const result = ExtractedClauseSchema.safeParse({
     clause_id: input.clause_id,

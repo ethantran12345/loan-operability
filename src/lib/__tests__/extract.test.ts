@@ -310,6 +310,20 @@ describe('hollow requirements', () => {
   })
 })
 
+describe('empty extraction', () => {
+  it('an empty requirements array is sent back with a usable reason', async () => {
+    const fetch = mockFetch(
+      completion('{"requirements": []}'),
+      completion(goodReply(manualClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(manualClause), { apiKey: 'test-key', fetch })
+
+    expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('"requirements" was empty')
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.attempts).toBe(2)
+  })
+})
+
 describe('notice field names', () => {
   it('a near-miss field name is sent back for correction, not compared as a missing field', async () => {
     const misnamed = cachedExtraction(manualClause.clause_id).requirements
