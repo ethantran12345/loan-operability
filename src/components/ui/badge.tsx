@@ -12,7 +12,7 @@ const TONES: Record<Tone, string> = {
   fail: 'border-fail-rule bg-fail-soft text-fail',
 }
 
-export const decisionTone = (d: Decision): Tone =>
+export const decisionTone = (d: Decision): 'pass' | 'manual' | 'fail' =>
   d === 'PASS' ? 'pass' : d === 'MANUAL' ? 'manual' : 'fail'
 
 export function Badge({

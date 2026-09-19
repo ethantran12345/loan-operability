@@ -22,14 +22,19 @@ institution's operations, and nothing here is legal or financial advice.
 | Domain types, capability graph, fixtures | done |
 | Deterministic evaluator + path search | done, 65 tests green |
 | Repair generator (`FAIL -> repair -> PASS`) | done |
-| `/api/extract` (Nemotron) | not started |
-| Review + Results routes | not started |
+| `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, mocked-fetch tests; not yet run against a live key |
+| Review + Results routes | done |
 
 ```
-npm test         # 65 tests
+npm test         # 82 tests
 npm run typecheck
-npm run dev
+npm run build
+npm run dev      # serves the app and /api/extract together
 ```
+
+The app works fully with `NVIDIA_API_KEY` unset: `/api/extract` serves the cached
+fixtures and the UI labels them as such. To try the live path, put
+`NVIDIA_API_KEY=...` in `.env.local` (gitignored) and restart `npm run dev`.
 
 ## How a decision is made
 
@@ -125,7 +130,12 @@ src/domain/evaluate.ts     bounded path search + decision semantics
 src/domain/repair.ts       grounded repair proposals + apply
 src/domain/time.ts         Intl-based timezone normalisation
 src/domain/sha256.ts       isomorphic hash for the replay record
+src/domain/schema.ts       Zod schemas — the single source of truth for Requirement types
 src/fixtures/              versioned capability graph, agreement, cached extractions
+src/lib/extract.ts         Nemotron call, one retry, timezone guard, fixture fallback
+api/extract.ts             Vercel Function wrapping src/lib/extract.ts
+src/routes/Review.tsx      select a clause, read and correct the extraction
+src/routes/Results.tsx     verdict, conflicts, candidate paths, repair, re-test, proof
 ```
 
 ## Replay record
