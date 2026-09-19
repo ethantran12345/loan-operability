@@ -77,7 +77,7 @@ authentication, model or parameter problem, so the app is built around it:
   and another at 10 s. The first valid reply wins and the rest are aborted.
 - **One 25 s budget** covers the whole extraction, retry included. Past it, the
   cached extraction is served with `x-extraction-fallback: timeout`.
-- **Pre-warming.** The page requests all three clauses as the agreement renders, so
+- **Pre-warming.** The page requests every clause as the agreement renders, so
   the queue is waited out while the clause is being read.
 - **Honest labels.** The badge says `Live Nemotron` only when this session's own
   call produced the requirements on screen. Anything else says `Cached fixture`,
@@ -101,6 +101,7 @@ once with the reason; a second rejection serves the cached extraction.
 | Missing timezone listed as an ambiguity | An open question has to be reported, not just left null. |
 | Notice contents stated in the clause | Customary fields filled in by the model would turn an unknown into a `PASS`. |
 | Bank field names | `facility` is not `facility_id`; a near miss would read as a missing field. |
+| Bank office names | `new_york_lending_office` is not `new_york`; a near miss would fail every path on an office the bank has. |
 | Not hollow | A requirement that states nothing is not an extraction. |
 
 ## How a decision is made
@@ -173,6 +174,44 @@ drafter nothing. Identity violations are now ranked ahead of conflict count, so 
 FAIL reports the three conflicts a drafter can act on: amount, cutoff, booking
 location.
 
+## The benchmark clause
+
+Section 2.03(c) is a fourth clause, built to show what reading the rulebook as
+prose gets wrong. It asks for a same-day EUR 20,000,000 draw through the New York
+Lending Office, with the notice delivered through the portal by 10:00 A.M. New York
+time.
+
+**The New York exception path.** The capability graph has a New York EUR same-day
+exception window (`cap-013`: at most EUR 20M, cutoff 10:30 America/New_York,
+requires `treasury` approval) and a New York EUR booking capability (`cap-027`).
+Every constraint a reader could check against the rulebook text passes on that
+path: currency, amount, increment, settlement basis, cutoff, booking entity,
+channel, notice fields.
+
+**The expired authority.** The exception is only legal while Treasury's authority
+(`apr-021`) is in force, and in graph v7 that authority expired on 2026-08-31. The
+engine returns `FAIL` with exactly one conflict. The decisive fact is a date held
+in the capability graph. It appears nowhere in the rulebook text, so no amount of
+language understanding applied to that text can recover it. The Results page
+shows this from the engine's own checks: the rulebook-checkable constraints on
+one side, the approval check and the authority's effective dates on the other. It
+does not show, quote or imitate any model's answer.
+
+**v7 vs v8.** The institution's state is a versioned input, not a constant. Graph
+v7 (2026-09-09) is the baseline with the lapsed authority. Graph v8 (2026-09-15)
+is identical except that Treasury renewed `apr-021`, effective 2026-09-15. The
+version selector on Results re-runs the evaluator on the same extracted clause,
+with no re-extraction and no model call, and the decision moves from `FAIL` to
+`MANUAL` with owner `treasury`. Both replay records stay on screen: same
+`requirement_bundle_hash`, different `capability_graph_version`, different
+decision. The three original clauses decide the same way on both versions
+(`src/domain/__tests__/benchmark.test.ts`).
+
+**18 → 32 paths.** Candidate paths are a cartesian product, so the two new
+capabilities widen the search for every `fund_draw` clause from 18 paths to 32.
+The extra paths are searched and rejected for the original clauses, and their
+decisions did not move.
+
 ## Repair proposals
 
 The model may write the sentence. It may not invent the number. Every proposal is
@@ -198,7 +237,7 @@ src/domain/repair.ts       grounded repair proposals + apply
 src/domain/time.ts         Intl-based timezone normalisation
 src/domain/sha256.ts       isomorphic hash for the replay record
 src/domain/schema.ts       Zod schemas — the single source of truth for Requirement types
-src/fixtures/              versioned capability graph, agreement, cached extractions
+src/fixtures/              capability graph v7 and v8, agreement, cached extractions
 src/lib/extract.ts         Nemotron call, hedging, one retry, output guards, fixture fallback
 api/extract.ts             Vercel Function wrapping src/lib/extract.ts
 src/routes/Review.tsx      select a clause, read and correct the extraction
