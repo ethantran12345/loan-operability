@@ -1,16 +1,30 @@
 // Relative paths and import attributes, not the '@/' alias: /api/extract runs this
 // file as plain Node ESM on Vercel, where the Vite alias does not exist.
 import graphJson from '../fixtures/capability-graph.v7.json' with { type: 'json' }
+import graphV8Json from '../fixtures/capability-graph.v8.json' with { type: 'json' }
 import agreementJson from '../fixtures/agreement.json' with { type: 'json' }
 import extractionsJson from '../fixtures/extractions.json' with { type: 'json' }
 import type { CapabilityGraph, ClauseType, ExtractedClause, SourceSpan } from './types'
 
 export const capabilityGraph = graphJson as unknown as CapabilityGraph
+export const capabilityGraphV8 = graphV8Json as unknown as CapabilityGraph
+
+/**
+ * Every graph version the demo can evaluate against. The institution's state is
+ * a versioned input to the decision, not a constant: the same clause can pass,
+ * need a human, or fail depending on which version was effective.
+ */
+export const capabilityGraphs: Record<number, CapabilityGraph> = {
+  [capabilityGraph.version]: capabilityGraph,
+  [capabilityGraphV8.version]: capabilityGraphV8,
+}
 
 export interface AgreementClause {
   clause_id: string
   clause_type: ClauseType
   scenario: 'PASS' | 'MANUAL' | 'FAIL'
+  /** True for the clause built to show what a prose-only reading gets wrong. */
+  benchmark?: boolean
   headline: string
   source_span: SourceSpan
   source_text: string

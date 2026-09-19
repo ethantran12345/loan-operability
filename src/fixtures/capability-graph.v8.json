@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "institution": "Meridian Commercial Bank (fictional)",
   "disclaimer": "Synthetic capability data built for a hackathon demonstration. Not a description of any real bank's operations.",
   "evidence_freshness_days": 180,
@@ -488,12 +488,13 @@
       "approval_id": "apr-021",
       "role": "treasury",
       "threshold": 25000000,
-      "effective_from": "2025-06-01",
-      "effective_to": "2026-08-31",
+      "effective_from": "2026-09-15",
+      "effective_to": null,
       "self_approval": false
     }
   ],
   "changelog": [
-    "v7 (2026-09-09): baseline. Treasury exception authority for New York EUR funding lapsed 2026-08-31 and has not been renewed."
+    "v7 (2026-09-09): baseline. Treasury exception authority for New York EUR funding lapsed 2026-08-31 and has not been renewed.",
+    "v8 (2026-09-15): Treasury renewed the New York EUR exception authority (apr-021), effective 2026-09-15. No other change."
   ]
 }

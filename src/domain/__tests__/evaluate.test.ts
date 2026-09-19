@@ -205,7 +205,11 @@ describe('cutoff comparator', () => {
     })
     const r = evaluateRequirement(req, G, T)
     expect(r.decision).toBe('FAIL')
-    expect(r.conflicts.find((c) => c.field === 'timing.notice_cutoff')!.reason).toMatch(/14:00/)
+    // 09:00 New York is 14:00 London, after the 09:30 cutoff on the London window.
+    const london = r.candidate_paths.find((p) => p.path_id === 'cap-001+cap-010+cap-025')!
+    const cutoff = london.checks.find((c) => c.field === 'timing.notice_cutoff')!
+    expect(cutoff.verdict).toBe('FAIL')
+    expect(cutoff.reason).toMatch(/14:00/)
   })
 })
 
@@ -438,7 +442,7 @@ describe('clause and agreement severity', () => {
       T,
     )
     expect(report.decision).toBe('FAIL')
-    expect(report.clause_results.map((c) => c.decision)).toEqual(['FAIL', 'MANUAL', 'PASS'])
+    expect(report.clause_results.map((c) => c.decision)).toEqual(['FAIL', 'MANUAL', 'PASS', 'FAIL'])
   })
 })
 

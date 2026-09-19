@@ -55,7 +55,7 @@ const bodyOf = (fn: ReturnType<typeof mockFetch>, call: number) =>
 describe('schema', () => {
   it('accepts every cached extraction, so the fixture and the live path share one shape', () => {
     const { note: _note, ...clauses } = extractionsJson as Record<string, unknown>
-    expect(Object.keys(clauses)).toHaveLength(3)
+    expect(Object.keys(clauses)).toHaveLength(4)
     for (const clause of Object.values(clauses)) {
       expect(ExtractedClauseSchema.safeParse(clause).success).toBe(true)
     }

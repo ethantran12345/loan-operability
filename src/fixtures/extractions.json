@@ -126,5 +126,49 @@
         "ambiguities": []
       }
     ]
+  },
+  "credit-agreement-2.03-c": {
+    "clause_id": "credit-agreement-2.03-c",
+    "clause_type": "borrowing_notice",
+    "source_text": "The Borrower may request an advance denominated in Euro in an aggregate principal amount of up to EUR 20,000,000 for same-day settlement through the New York Lending Office, provided that the related Borrowing Notice, specifying the Facility, the principal amount, the currency and the requested value date, is delivered through the Agent's electronic portal by 10:00 A.M. New York time on such Business Day.",
+    "source_span": {
+      "document": "synthetic-credit-agreement",
+      "section": "2.03(c)",
+      "page": 48
+    },
+    "extraction_source": "fixture",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "requirements": [
+      {
+        "requirement_id": "req-001",
+        "operation": "fund_draw",
+        "currency": "EUR",
+        "amount": {
+          "operator": "lte",
+          "value": 20000000,
+          "unit": "EUR"
+        },
+        "timing": {
+          "settlement": "same_day",
+          "notice_cutoff": "10:00",
+          "timezone": "America/New_York",
+          "notice_lead_business_days": null,
+          "service_level_business_days": null
+        },
+        "booking_entity": "new_york",
+        "notice_channel": "portal",
+        "required_fields": [
+          "facility_id",
+          "amount",
+          "currency",
+          "value_date"
+        ],
+        "interest": null,
+        "fee": null,
+        "mandatory": true,
+        "confidence": 0.95,
+        "ambiguities": []
+      }
+    ]
   }
 }
