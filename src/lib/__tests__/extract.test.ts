@@ -8,6 +8,7 @@ import {
   DEFAULT_MODEL,
   NVIDIA_CHAT_URL,
   bankFieldFor,
+  anyLendingOfficeIsStated,
   bankOfficeFor,
   extractClause,
   noticeContentsAreStated,
@@ -368,6 +369,26 @@ describe('booking entity names', () => {
     expect(out.clause.extraction_source).toBe('nemotron')
     expect(out.clause.requirements[0]!.booking_entity).toBe('new_york')
     expect(out.attempts).toBe(2)
+  })
+
+  it('a named office widened to any_lending_office is sent back, not analysed across every office', async () => {
+    const widened = cachedExtraction(benchmarkClause.clause_id).requirements
+    widened[0]!.booking_entity = 'any_lending_office'
+    const fetch = mockFetch(
+      completion(JSON.stringify({ requirements: widened })),
+      completion(goodReply(benchmarkClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(benchmarkClause), { apiKey: 'test-key', fetch })
+
+    expect(bodyOf(fetch, 1).messages.at(-1)!.content).toContain('never says "any Lending Office"')
+    expect(out.clause.requirements[0]!.booking_entity).toBe('new_york')
+    expect(out.attempts).toBe(2)
+  })
+
+  it('any_lending_office is accepted only for the clause that says it', () => {
+    expect(agreement.clauses.filter((c) => anyLendingOfficeIsStated(c.source_text)).map((c) => c.clause_id)).toEqual([
+      failClause.clause_id,
+    ])
   })
 
   it('leaves the bank\'s own offices, any_lending_office and unknown offices alone', () => {

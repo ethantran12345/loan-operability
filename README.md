@@ -101,6 +101,7 @@ once with the reason; a second rejection serves the cached extraction.
 | Missing timezone listed as an ambiguity | An open question has to be reported, not just left null. |
 | Notice contents stated in the clause | Customary fields filled in by the model would turn an unknown into a `PASS`. |
 | Bank field names | `facility` is not `facility_id`; a near miss would read as a missing field. |
+| "Any Lending Office" stated in the clause | A named office read as every office would be failed on worst-case analysis across all of them. |
 | Bank office names | `new_york_lending_office` is not `new_york`; a near miss would fail every path on an office the bank has. |
 | Not hollow | A requirement that states nothing is not an extraction. |
 

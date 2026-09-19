@@ -164,6 +164,11 @@ export function bankFieldFor(field: string): string | null {
   return BANK_NOTICE_FIELDS.find((known) => known.includes(field) || field.includes(known)) ?? null
 }
 
+/** True only when the clause itself leaves the office open ("any Lending Office"). */
+export function anyLendingOfficeIsStated(sourceText: string): boolean {
+  return /\bany\s+lending\s+office\b/i.test(sourceText)
+}
+
 const BANK_OFFICES = capabilityGraph.lending_offices.map((o) => o.entity)
 
 /**
@@ -296,6 +301,19 @@ export function validateModelOutput(
   )
   if (misnamed.length > 0) {
     return { ok: false, error: `Notice fields must use the standard names:\n${misnamed.join('\n')}` }
+  }
+
+  // "any_lending_office" triggers worst-case analysis across every office. A
+  // clause that names one office must not be read as naming all of them.
+  const widened = result.data.requirements.filter(
+    (r) => r.booking_entity === 'any_lending_office' && !anyLendingOfficeIsStated(input.source_text),
+  )
+  if (widened.length > 0) {
+    const ids = widened.map((r) => r.requirement_id).join(', ')
+    return {
+      ok: false,
+      error: `The clause text never says "any Lending Office", but booking_entity "any_lending_office" was supplied: ${ids}.\nIf the clause names a single office, write its lowercase city. Otherwise set booking_entity to null and list the unstated office in "ambiguities".`,
+    }
   }
 
   const misnamedOffices = result.data.requirements.flatMap((r) => {
