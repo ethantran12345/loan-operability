@@ -164,6 +164,18 @@ export function bankFieldFor(field: string): string | null {
   return BANK_NOTICE_FIELDS.find((known) => known.includes(field) || field.includes(known)) ?? null
 }
 
+const BANK_OFFICES = capabilityGraph.lending_offices.map((o) => o.entity)
+
+/**
+ * The bank's name for an office the model spelled its own way
+ * ("new_york_lending_office" for "new_york"). Booking entities are compared by
+ * exact name, so a near miss would fail every path on an office the bank has.
+ */
+export function bankOfficeFor(entity: string): string | null {
+  if (entity === 'any_lending_office' || BANK_OFFICES.includes(entity)) return null
+  return BANK_OFFICES.find((known) => entity.includes(known)) ?? null
+}
+
 type Validation = { ok: true; clause: ExtractedClause } | { ok: false; error: string }
 
 /** Assemble the full clause around the model's requirements and validate it. */
@@ -284,6 +296,17 @@ export function validateModelOutput(
   )
   if (misnamed.length > 0) {
     return { ok: false, error: `Notice fields must use the standard names:\n${misnamed.join('\n')}` }
+  }
+
+  const misnamedOffices = result.data.requirements.flatMap((r) => {
+    const known = r.booking_entity ? bankOfficeFor(r.booking_entity) : null
+    return known ? [`- ${r.requirement_id}: booking_entity "${r.booking_entity}" must be written "${known}"`] : []
+  })
+  if (misnamedOffices.length > 0) {
+    return {
+      ok: false,
+      error: `A single named office is its lowercase city:\n${misnamedOffices.join('\n')}`,
+    }
   }
 
   return { ok: true, clause: result.data }

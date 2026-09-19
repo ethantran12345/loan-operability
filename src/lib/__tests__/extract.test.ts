@@ -8,6 +8,7 @@ import {
   DEFAULT_MODEL,
   NVIDIA_CHAT_URL,
   bankFieldFor,
+  bankOfficeFor,
   extractClause,
   noticeContentsAreStated,
   timezoneIsStated,
@@ -347,6 +348,33 @@ describe('notice field names', () => {
     expect(bankFieldFor('facility_id')).toBeNull()
     expect(bankFieldFor('interest_period')).toBeNull()
     expect(bankFieldFor('facility')).toBe('facility_id')
+  })
+})
+
+describe('booking entity names', () => {
+  const benchmarkClause = agreement.clauses[3]!
+
+  it('a near-miss office name is sent back for correction, not failed on every path', async () => {
+    const misnamed = cachedExtraction(benchmarkClause.clause_id).requirements
+    misnamed[0]!.booking_entity = 'new_york_lending_office'
+    const fetch = mockFetch(
+      completion(JSON.stringify({ requirements: misnamed })),
+      completion(goodReply(benchmarkClause.clause_id)),
+    )
+    const out = await extractClause(requestFor(benchmarkClause), { apiKey: 'test-key', fetch })
+
+    const feedback = bodyOf(fetch, 1).messages.at(-1)!.content
+    expect(feedback).toContain('"new_york_lending_office" must be written "new_york"')
+    expect(out.clause.extraction_source).toBe('nemotron')
+    expect(out.clause.requirements[0]!.booking_entity).toBe('new_york')
+    expect(out.attempts).toBe(2)
+  })
+
+  it('leaves the bank\'s own offices, any_lending_office and unknown offices alone', () => {
+    expect(bankOfficeFor('new_york')).toBeNull()
+    expect(bankOfficeFor('any_lending_office')).toBeNull()
+    expect(bankOfficeFor('frankfurt')).toBeNull()
+    expect(bankOfficeFor('london_branch')).toBe('london')
   })
 })
 
