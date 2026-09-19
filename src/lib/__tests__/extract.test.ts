@@ -39,6 +39,7 @@ const bodyOf = (fn: ReturnType<typeof mockFetch>, call: number) =>
   JSON.parse(fn.mock.calls[call]![1]!.body as string) as {
     model: string
     temperature: number
+    chat_template_kwargs: { enable_thinking: boolean }
     messages: { role: string; content: string }[]
   }
 
@@ -75,6 +76,7 @@ describe('extractClause', () => {
     const headers = fetch.mock.calls[0]![1]!.headers as Record<string, string>
     expect(headers.authorization).toBe('Bearer test-key')
     expect(bodyOf(fetch, 0).temperature).toBe(0)
+    expect(bodyOf(fetch, 0).chat_template_kwargs).toEqual({ enable_thinking: false })
   })
 
   it('takes clause identity and text from the request, never from the model', async () => {

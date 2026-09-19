@@ -18,7 +18,7 @@ import {
 } from '../domain/schema.js'
 
 export const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions'
-export const DEFAULT_MODEL = 'nvidia/llama-3.3-nemotron-super-49b-v1'
+export const DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b'
 
 /** Why the fixture served the result. null when Nemotron served it. */
 export type FallbackReason =
@@ -212,7 +212,16 @@ export async function extractClause(
           'content-type': 'application/json',
           accept: 'application/json',
         },
-        body: JSON.stringify({ model, messages, temperature: 0, max_tokens: 2048, stream: false }),
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0,
+          max_tokens: 2048,
+          stream: false,
+          // Extraction needs bounded JSON, not a long reasoning trace. Nemotron
+          // 3.5 enables thinking by default, which can exceed the demo timeout.
+          chat_template_kwargs: { enable_thinking: false },
+        }),
         signal: AbortSignal.timeout(deps.timeoutMs ?? 20_000),
       })
       if (!res.ok) return fixture(input, `http_${res.status}`, attempt)
