@@ -29,7 +29,7 @@ institution's operations, and nothing here is legal or financial advice.
 
 ## Team
 
-- Ethan Tran — solo hacker
+- Ethan Tran — solo hacker — [ethantran1000@gmail.com](mailto:ethantran1000@gmail.com)
 
 ## Hackathon build provenance
 
