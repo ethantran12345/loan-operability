@@ -5,16 +5,17 @@
   --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --color-paper: #f4f2ec;
-  --color-sheet: #fffefb;
-  --color-ink: #16181d;
-  --color-ink-soft: #4a4f5a;
-  --color-ink-faint: #6b7080;
-  --color-rule: #dbd7cc;
-  --color-rule-soft: #ebe8e0;
-  --color-accent: #1f3a5f;
-  --color-accent-soft: #e9eef5;
-  --color-mark: #fbeeb8;
+  --color-paper: #f1f4f8;
+  --color-sheet: #ffffff;
+  --color-ink: #0f172a;
+  --color-ink-soft: #475569;
+  --color-ink-faint: #64748b;
+  --color-rule: #d8dee8;
+  --color-rule-soft: #e9edf3;
+  --color-accent: #2f4a73;
+  --color-accent-soft: #e6ecf5;
+  --color-mark: #fdf0b9;
+  --color-mark-rule: #e9cf6a;
 
   --color-fail: #b42318;
   --color-fail-soft: #fdf0ee;

@@ -6,11 +6,13 @@ A pre-signing compatibility test for loan agreements.
 
 **Source:** https://github.com/ethantran12345/loan-operability
 
-Select a clause from a synthetic credit agreement. Nemotron turns the legal language
-into structured operational requirements. A deterministic engine tests those
-requirements against a fictional bank's versioned capability graph and returns
-`PASS`, `MANUAL`, or `FAIL` — with the evidence behind the answer, a grounded
-repair, and a re-test.
+An employee opens a synthetic document packet: one complete credit agreement and
+four bank operating policies. The application reads the documents, Nemotron turns
+the borrowing clauses into structured operational requirements, and a deterministic
+engine tests them against a fictional bank's versioned capability registry. Each
+clause returns `PASS`, `MANUAL`, or `FAIL`, with the agreement passage and the
+policy passage behind every finding side by side, a grounded amendment, and a
+re-test the employee releases.
 
 > **Nemotron understands the language. Our system owns the institution's verified
 > operating state and deterministically proves whether a complete execution path
@@ -24,12 +26,103 @@ institution's operations, and nothing here is legal or financial advice.
 | Phase | State |
 |---|---|
 | Domain types, capability graph, fixtures | done |
-| Deterministic evaluator + path search | done, 157 tests green across the repo |
+| Deterministic evaluator + path search | done, 175 tests green across the repo |
 | Repair generator (`FAIL -> repair -> PASS`) | done |
 | `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, verified against the live hosted NVIDIA endpoint |
 | Review + Results routes | done |
 | Challenge mode (`/api/challenge`, grader, Results panel) | done |
-| Process view (`/run/:clauseId?v=7\|8`) | done, reached by URL, not in the step nav |
+| Document workspace (`/`, `?v=7\|8`) | done: packet ingestion, citation verification, evidence compare, employee review, re-test |
+| Process view (`/run/:clauseId?v=7\|8`) | superseded by the workspace, still reachable by URL |
+
+## The document workspace (`/`)
+
+Three panes: the document tray, the document viewer, the findings. A four-step
+strip reports real operations only: **Read documents** (files parsed, registry
+citations verified, milliseconds measured), **Extract terms** (how many clauses
+came back live and how many from the cached fixture), **Check routes** (routes
+searched, engine time), **Review findings** (how many clauses the employee has
+reviewed). Nothing is paced. The only decoration is a scan line over a clause
+while that clause's extraction request is actually in flight. The page never
+scrolls on its own: the panes move only when the employee selects a clause, a
+finding, or "Open in document".
+
+### What is actually read
+
+`src/packet/` holds six text files: `credit-agreement.draft-7.md` (6 pages, 9
+articles, 32 paragraphs), three operating procedures (notice intake, funding
+windows and limits, booking entities) and the approvals register in two versions
+(v3 for registry v7, v4 for registry v8). `src/documents/parse.ts` parses them at
+runtime into document id, version, date, pages, sections and paragraphs. Every
+paragraph keeps its exact text and its character offsets into the raw file, and
+every file is identified by its SHA-256. The clause text sent to Nemotron is read
+out of the parsed agreement, not out of a fixture. A test pins that text to the
+text the cached extractions were recorded on.
+
+**Supported input: one format**, "packet text format v1": UTF-8 `.md` with a
+`key: value` front matter, `<!-- page N -->` markers, `#` articles, `## <id>
+<title>` sections and `(a)` labelled paragraphs. The parser refuses anything else
+with an error rather than guessing. **Not supported:** PDF, DOCX, scanned or image
+documents (there is no OCR), tables, footnotes, nested sub-paragraphs, and upload
+of your own documents. The packet is bundled with the application.
+
+**Review scope is configured, not discovered.** `src/fixtures/agreement.json`
+names the four Article II borrowing clauses to extract and check. The other 28
+paragraphs (definitions, interest, fees, repayment, defaults and so on) are read
+and displayed and included in the chat packet, but they are not extracted or
+evaluated, and the viewer says so.
+
+### How policy evidence connects to the capability registry
+
+The registry (`src/fixtures/capability-graph.v7.json`, `.v8.json`) is
+hand-authored structured data. **It is not generated from the policy documents,
+and the application does not claim to turn policy prose into rules.** What
+`src/documents/citations.ts` does is verify the link, in one direction, every
+time the packet is read:
+
+1. **Resolve.** A capability cites a policy section by title
+   (`evidence.section`, for example "EUR funding"). An approval is cited by the
+   section whose title carries its id, for example "Treasury exception authority
+   (apr-021)".
+2. **Verify.** Each checked registry value is rendered the way a procedure
+   writes it (`25000000` becomes "EUR 25,000,000", `09:30` becomes "9:30 A.M.",
+   `Europe/London` becomes "London time", `2026-08-31` becomes "31 August 2026")
+   and must appear verbatim in the cited section. Numbers may not match inside a
+   longer number.
+3. **Cite.** The matching character spans are kept, so a finding opens the
+   passage with the supporting words highlighted.
+
+On both registry versions 16 records verify (11 capabilities, 4 approvals, the
+lending-office list) and 4 are reported as "not in packet": the interest and fee
+engines cite procedures this packet does not include. Tests show that changing a
+registry value, or pairing registry v7 with the v8 register, is reported as a
+mismatch. Limits: a rule that is in a policy but missing from the registry is not
+detected; capability effective dates and the `outcome` field are not text-verified.
+
+### Findings, review and re-test
+
+A finding leads with the outcome and the two values ("Unsupported same-day
+amount", "Agreement: EUR 40,000,000", "Bank limit: EUR 25,000,000"). Selecting it
+opens the agreement passage and the policy passage side by side. An approval
+finding cites two passages: the procedure that demands the approval, then the
+register entry that says whether the authority is in force. A term the clause
+never states is shown as not stated, with nothing highlighted. "Supported
+separately, but not on one route" runs the engine's own comparators one
+capability at a time: EUR 40,000,000 fits the T+1 window, which is not same-day.
+
+The employee confirms the extracted terms, chooses which proposed changes to
+include, confirms having reviewed them, and releases the re-test. **Those
+checkboxes are a demo review interaction held in the browser. They are not
+authenticated sign-off, contract approval or a durable audit record**, and they
+cannot move a verdict: the re-test is the same deterministic evaluation, and
+leaving out the amount change re-tests to `FAIL`. The agreement's own result does
+not change when a re-test passes. `MANUAL` and `FAIL` without a drafting fix offer
+no re-test at all.
+
+Switching the registry version swaps the approvals register in the tray,
+re-verifies citations and re-runs the checks on the same extracted terms with no
+model call. **Copy chat packet** produces one text with the question, the
+transaction date, all five documents and the registry JSON, and no verdict, so a
+chat model can be given the same inputs. See `docs/comparison-video.md`.
 
 ## Team
 
@@ -58,7 +151,7 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
-npm test         # 157 tests
+npm test         # 175 tests
 npm run typecheck
 npm run build
 npm run dev      # serves the app, /api/extract and /api/challenge together
@@ -215,8 +308,9 @@ channel, notice fields.
 **The expired authority.** The exception is only legal while Treasury's authority
 (`apr-021`) is in force, and in graph v7 that authority expired on 2026-08-31. The
 engine returns `FAIL` with exactly one conflict. The decisive fact is a date held
-in the capability graph. It appears nowhere in the rulebook text, so no amount of
-language understanding applied to that text can recover it. The Results page
+in the capability graph. In the document packet the same date is written in the
+approvals register (MCB-POL-007), and the chat packet includes it, so a reader or
+a model given the packet can find it too. The Results page
 shows this from the engine's own checks: the rulebook-checkable constraints on
 one side, the approval check and the authority's effective dates on the other. It
 does not show, quote or imitate any model's answer.
@@ -352,7 +446,16 @@ api/extract.ts             Vercel Function wrapping src/lib/extract.ts
 src/domain/challenge.ts    challenge mode: the bundle sent to the model, its answer schema, the grader
 src/lib/challenge.ts       parallel model runs, one retry each, recorded-only fallback
 api/challenge.ts           Vercel Function wrapping src/lib/challenge.ts
-src/routes/Review.tsx      select a clause, read and correct the extraction
+src/packet/                the synthetic document packet: agreement and policies, as text
+src/documents/parse.ts     packet text format v1 parser: ids, versions, pages, exact offsets
+src/documents/packet.ts    which files make up the packet for each registry version
+src/documents/citations.ts registry-to-policy citation verifier, evidence passages per check
+src/documents/locate.ts    where a clause states a term; terms another capability accepts alone
+src/documents/bundle.ts    the chat packet for the comparison video
+src/lib/useAgreementReview.ts  read, extract, check: the workspace's real operations
+src/routes/Workspace.tsx   the document workspace: tray, viewer, findings
+src/components/workspace/  its tray, viewer, compare view, findings panel, progress strip
+src/routes/Review.tsx      single-clause review with amount correction (`/review`)
 src/routes/Results.tsx     verdict, conflicts, candidate paths, repair, re-test, proof
 src/routes/Run.tsx         the process view: a cancellable stage runner over real engine output
 src/components/run/        its stage shell, path-search grid, check ticker, repair rows, record

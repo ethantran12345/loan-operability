@@ -7,7 +7,7 @@
     "source_span": {
       "document": "synthetic-credit-agreement",
       "section": "2.03(a)",
-      "page": 47
+      "page": 3
     },
     "extraction_source": "fixture",
     "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
@@ -50,7 +50,7 @@
     "source_span": {
       "document": "synthetic-credit-agreement",
       "section": "2.02(c)",
-      "page": 44
+      "page": 2
     },
     "extraction_source": "fixture",
     "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
@@ -90,7 +90,7 @@
     "source_span": {
       "document": "synthetic-credit-agreement",
       "section": "2.03(b)",
-      "page": 48
+      "page": 3
     },
     "extraction_source": "fixture",
     "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
@@ -134,7 +134,7 @@
     "source_span": {
       "document": "synthetic-credit-agreement",
       "section": "2.03(c)",
-      "page": 48
+      "page": 3
     },
     "extraction_source": "fixture",
     "model": "nvidia/nemotron-3.5-lightning-30b-a3b",

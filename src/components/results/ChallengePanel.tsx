@@ -88,7 +88,7 @@ function ModelColumn({ served }: { served: Served }) {
         </div>
         <div>
           <dt className="font-semibold">Reasoning</dt>
-          <dd className="mt-1 font-serif text-base leading-relaxed">{answer.reasoning || 'None given.'}</dd>
+          <dd className="mt-1 text-base leading-relaxed">{answer.reasoning || 'None given.'}</dd>
         </div>
         <div>
           <dt className="font-semibold">Paths it listed ({answer.paths_considered.length})</dt>
@@ -376,7 +376,7 @@ export function ChallengePanel({
 
   return (
     <section aria-labelledby="challenge-title" className="mt-10">
-      <h2 id="challenge-title" className="font-serif text-2xl font-semibold">
+      <h2 id="challenge-title" className="text-2xl font-semibold">
         Check the model's work
       </h2>
       <p className="mt-1 max-w-prose text-sm text-ink-soft">

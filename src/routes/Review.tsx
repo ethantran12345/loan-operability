@@ -161,7 +161,7 @@ export function Review() {
         aria-busy={loading}
         className="scroll-mt-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pr-1"
       >
-        <h2 id="extraction-title" className="font-serif text-xl font-semibold">
+        <h2 id="extraction-title" className="text-xl font-semibold">
           Extracted requirements
         </h2>
 

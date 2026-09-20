@@ -23,7 +23,7 @@ type Stage = 'tested' | 'applied' | 'retested'
 function Section({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
     <section aria-labelledby={`section-${n}`} className="mt-10">
-      <h2 id={`section-${n}`} className="font-serif text-2xl font-semibold">
+      <h2 id={`section-${n}`} className="text-lg font-semibold">
         {title}
       </h2>
       <div className="mt-4">{children}</div>
@@ -129,7 +129,7 @@ export function Results() {
         Back to the agreement
       </Link>
 
-      <h1 className="mt-2 font-serif text-3xl leading-tight font-semibold sm:text-4xl">
+      <h1 className="mt-2 text-2xl leading-tight font-semibold">
         Section {clause.source_span.section}
         {meta && <span className="block text-xl font-normal text-ink-soft">{meta.headline}</span>}
       </h1>
@@ -290,7 +290,7 @@ export function Results() {
                               </Badge>
                             )}
                           </div>
-                          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-serif text-lg">
+                          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-lg">
                             <span className="text-fail line-through decoration-fail/50">{p.from}</span>
                             <ArrowRight aria-hidden className="size-4 text-ink-faint" />
                             <span className="sr-only">changes to</span>
@@ -326,7 +326,7 @@ export function Results() {
                       <figcaption className="text-xs font-semibold tracking-wider text-ink-faint uppercase">
                         Suggested drafting, generated from the changes above
                       </figcaption>
-                      <p className="mt-1.5 font-serif text-base leading-relaxed">{plan.narrative}</p>
+                      <p className="mt-1.5 text-base leading-relaxed">{plan.narrative}</p>
                     </figure>
                   )}
                 </div>

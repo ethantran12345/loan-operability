@@ -43,7 +43,7 @@ export function Verdict({ decision, label, caption, arrive = false }: Props) {
       <p className="text-xs font-semibold tracking-widest uppercase opacity-80">{label}</p>
       <p
         className={cn(
-          'mt-1 flex items-center gap-3 font-serif text-6xl leading-none font-semibold tracking-tight sm:text-7xl',
+          'mt-1 flex items-center gap-3 text-6xl leading-none font-semibold tracking-tight sm:text-7xl',
           arrive && 'animate-verdict-in',
         )}
       >

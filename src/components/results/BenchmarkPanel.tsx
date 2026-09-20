@@ -46,7 +46,7 @@ export function BenchmarkPanel({
   return (
     <div className="mb-6">
       <div className="rounded-lg border border-rule bg-sheet">
-        <h3 className="border-b border-rule-soft px-4 py-3 font-serif text-lg font-semibold">
+        <h3 className="border-b border-rule-soft px-4 py-3 text-lg font-semibold">
           What the rulebook reads like vs. what the institution knows
         </h3>
         <div className="grid md:grid-cols-2">

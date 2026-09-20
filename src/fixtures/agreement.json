@@ -13,7 +13,7 @@
       "source_span": {
         "document": "synthetic-credit-agreement",
         "section": "2.03(a)",
-        "page": 47
+        "page": 3
       },
       "source_text": "The Borrower may, on any Business Day, request an advance denominated in Euro in an aggregate principal amount of up to EUR 40,000,000 for same-day settlement, provided that the related Borrowing Notice is delivered by 11:00 A.M. on such Business Day, and such advance may be made available through any Lending Office of the Administrative Agent."
     },
@@ -25,7 +25,7 @@
       "source_span": {
         "document": "synthetic-credit-agreement",
         "section": "2.02(c)",
-        "page": 44
+        "page": 2
       },
       "source_text": "A Borrowing Notice shall be deemed validly given if delivered by electronic mail to the Administrative Agent, and the Administrative Agent shall authenticate and act upon any such notice within one Business Day of receipt. Each Borrowing Notice shall specify the Facility, the principal amount, the currency and the requested value date."
     },
@@ -37,7 +37,7 @@
       "source_span": {
         "document": "synthetic-credit-agreement",
         "section": "2.03(b)",
-        "page": 48
+        "page": 3
       },
       "source_text": "The Borrower may request an advance denominated in Euro in an aggregate principal amount of up to EUR 20,000,000 for same-day settlement, provided that the related Borrowing Notice, specifying the Facility, the principal amount, the currency and the requested value date, is delivered through the Agent's electronic portal by 9:30 A.M. London time on such Business Day and the advance is booked through the London Lending Office."
     },
@@ -50,7 +50,7 @@
       "source_span": {
         "document": "synthetic-credit-agreement",
         "section": "2.03(c)",
-        "page": 48
+        "page": 3
       },
       "source_text": "The Borrower may request an advance denominated in Euro in an aggregate principal amount of up to EUR 20,000,000 for same-day settlement through the New York Lending Office, provided that the related Borrowing Notice, specifying the Facility, the principal amount, the currency and the requested value date, is delivered through the Agent's electronic portal by 10:00 A.M. New York time on such Business Day."
     }

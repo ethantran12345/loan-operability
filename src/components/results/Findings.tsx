@@ -50,13 +50,13 @@ function Sides({ required, supported }: { required: string; supported: string })
         <dt className="text-xs font-semibold tracking-wider text-ink-faint uppercase">
           Contract requires
         </dt>
-        <dd className="mt-0.5 font-serif text-lg">{required}</dd>
+        <dd className="mt-0.5 text-lg">{required}</dd>
       </div>
       <div>
         <dt className="text-xs font-semibold tracking-wider text-ink-faint uppercase">
           Bank supports
         </dt>
-        <dd className="mt-0.5 font-serif text-lg">{supported}</dd>
+        <dd className="mt-0.5 text-lg">{supported}</dd>
       </div>
     </dl>
   )
