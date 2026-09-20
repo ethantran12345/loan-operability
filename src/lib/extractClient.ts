@@ -37,6 +37,11 @@ export interface Extraction {
    * cache is keyed by clause, so it cannot know. It is shown, and it is called this.
    */
   other_text?: boolean
+  /**
+   * When this page asked /api/extract for the clause, and its place in the order asked.
+   * A remembered result keeps the stamp of the request that produced it.
+   */
+  asked?: { seq: number; at: string }
 }
 
 /** A cached extraction describes the text it was recorded from, and only that text. */
@@ -85,6 +90,13 @@ export async function requestExtraction(
   clause: AgreementClause,
   signal: AbortSignal,
 ): Promise<Extraction> {
+  const asked = { seq: ++askedSoFar, at: new Date().toISOString() }
+  return { ...(await answerFor(clause, signal)), asked }
+}
+
+let askedSoFar = 0
+
+async function answerFor(clause: AgreementClause, signal: AbortSignal): Promise<Extraction> {
   try {
     const res = await fetch('/api/extract', {
       method: 'POST',

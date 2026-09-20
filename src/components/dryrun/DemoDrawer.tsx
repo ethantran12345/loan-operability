@@ -3,17 +3,19 @@ import { X } from 'lucide-react'
 import { GRAPH_VERSIONS, changelogEntry } from '@/components/results/GraphVersion'
 import { Badge } from '@/components/ui/badge'
 import { capabilityGraphs } from '@/domain/fixtures'
+import { callLog, noCallReason, unusedReply, type CallLogEntry } from '@/lib/callLog'
 import { cn } from '@/lib/cn'
 import { canRetryLive, sourceDetail } from '@/lib/extractClient'
 import type { PolicyInForce } from '@/documents/intake'
+import { seconds } from '@/lib/runFormat'
 import type { ClauseReview } from '@/lib/useAgreementReview'
 
 const ACTION = 'rounded-md border border-rule bg-sheet px-3 py-1.5 text-sm font-semibold text-ink hover:border-ink-faint'
 
 /**
  * Everything a judge needs and an analyst does not: the registry version, the
- * policy packet, the chat packet, Challenge mode, the staged run, extraction diagnostics, and the
- * older views.
+ * policy packet, the chat packet, Challenge mode, the staged run, extraction diagnostics, the
+ * Nemotron call log, and the older views.
  */
 export function DemoDrawer({
   version,
@@ -174,6 +176,13 @@ export function DemoDrawer({
             {diagnostics && <p className="mt-3 font-mono text-[0.7rem] leading-relaxed text-ink-faint">{diagnostics}</p>}
           </Tool>
 
+          <Tool
+            title="Nemotron call log"
+            caption="One entry per clause, in the order this session asked. Every value is the extraction result or what the server measured of its own call. The API key and the request headers never reach the browser, so they cannot appear here. A cached clause made no call, and none is shown."
+          >
+            <CallLog clauses={clauses} />
+          </Tool>
+
           <Tool title="Technical results" caption="The engine's full report for the current clause.">
             <button type="button" onClick={onTechnical} className={ACTION}>Technical results</button>
           </Tool>
@@ -184,6 +193,80 @@ export function DemoDrawer({
         </div>
       </aside>
     </div>
+  )
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** The terms on screen, counted. On a cached entry they are the fixture's, and the entry says so. */
+const termsLine = (e: CallLogEntry) =>
+  `${plural(e.terms.requirements, 'requirement')} · confidence ${e.terms.confidence.map((c) => c.toFixed(2)).join(', ')} · ${plural(e.terms.ambiguities, 'ambiguity', 'ambiguities')} · extraction_source ${e.terms.extraction_source}`
+
+function CallLog({ clauses }: { clauses: ClauseReview[] }) {
+  const entries = callLog(clauses)
+  const waiting = clauses.filter((c) => !c.extraction)
+  return (
+    <ol data-testid="call-log" className="space-y-3 font-mono text-[0.68rem] leading-relaxed">
+      {entries.map((e) => (
+        <li key={e.clause_id} data-call={e.clause_id} data-call-state={e.call} className="border-l-2 border-rule pl-2.5">
+          <p className="flex items-center gap-2 font-sans text-xs">
+            <span className="font-semibold">§{e.section}</span>
+            <Badge tone="neutral" className="px-1.5 py-0 text-[0.65rem]">{e.call === 'answered' ? 'Live' : 'Cached'}</Badge>
+            {e.asked && (
+              <span className="ml-auto font-mono text-[0.68rem] text-ink-faint">
+                {/* With no call there is no call time: the stamp is when the cached terms were served. */}
+                {e.call === 'none' ? 'served ' : 'asked '}
+                <time dateTime={e.asked.at}>{e.asked.at}</time>
+              </span>
+            )}
+          </p>
+          <dl className="mt-1 grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2 text-ink-soft [&_dt]:text-ink-faint">
+            {e.call === 'none' ? (
+              <>
+                <dt>call</dt>
+                <dd>none made: {noCallReason(e.fallback_reason)}</dd>
+              </>
+            ) : (
+              <>
+                <dt>model</dt>
+                <dd className="[overflow-wrap:anywhere]">{e.model ?? 'not reported: the server names the model only on a reply it used'}</dd>
+                <dt>sent</dt>
+                <dd className="[overflow-wrap:anywhere]">{e.sent!.clause_id} · §{e.sent!.section} · {e.sent!.chars.toLocaleString('en-US')} characters of clause text</dd>
+                <dt>back</dt>
+                <dd>{e.call === 'answered' ? termsLine(e) : `${unusedReply(e.fallback_reason)} · not used`}</dd>
+                {e.measured && (
+                  <>
+                    <dt>call</dt>
+                    <dd>
+                      upstream_ms {e.measured.upstream_ms.toLocaleString('en-US')} ({seconds(e.measured.upstream_ms)}) · {plural(e.measured.attempts, 'attempt')} · {plural(e.measured.calls, 'HTTP call')}
+                    </dd>
+                  </>
+                )}
+                {e.measured?.rejection && (
+                  <>
+                    <dt>rejected</dt>
+                    <dd className="text-manual">first reading: {e.measured.rejection}</dd>
+                  </>
+                )}
+              </>
+            )}
+            {e.call !== 'answered' && (
+              <>
+                <dt>shown</dt>
+                <dd>
+                  cached{e.recorded_from ? `, recorded from ${e.recorded_from}` : ''}: {termsLine(e)}
+                </dd>
+              </>
+            )}
+          </dl>
+        </li>
+      ))}
+      {waiting.map((c) => (
+        <li key={c.clause.clause_id} data-call={c.clause.clause_id} data-call-state="waiting" className="border-l-2 border-rule-soft pl-2.5 font-sans text-xs text-ink-faint">
+          <span className="font-semibold text-ink-soft">§{c.clause.source_span.section}</span> no answer yet, so nothing to log
+        </li>
+      ))}
+    </ol>
   )
 }
 
