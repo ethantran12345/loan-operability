@@ -24,10 +24,11 @@ institution's operations, and nothing here is legal or financial advice.
 | Phase | State |
 |---|---|
 | Domain types, capability graph, fixtures | done |
-| Deterministic evaluator + path search | done, 65 tests green |
+| Deterministic evaluator + path search | done, 143 tests green across the repo |
 | Repair generator (`FAIL -> repair -> PASS`) | done |
 | `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, verified against the live hosted NVIDIA endpoint |
 | Review + Results routes | done |
+| Challenge mode (`/api/challenge`, grader, Results panel) | done |
 
 ## Team
 
@@ -56,10 +57,10 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
-npm test         # 96 tests
+npm test         # 143 tests
 npm run typecheck
 npm run build
-npm run dev      # serves the app and /api/extract together
+npm run dev      # serves the app, /api/extract and /api/challenge together
 ```
 
 The app works fully with `NVIDIA_API_KEY` unset: `/api/extract` serves the cached
@@ -213,6 +214,65 @@ capabilities widen the search for every `fund_draw` clause from 18 paths to 32.
 The extra paths are searched and rejected for the original clauses, and their
 decisions did not move.
 
+## Challenge mode
+
+**Check the model's work.** On Results, the same clause and the same
+capability-graph file are given to the same model with no engine, and the engine
+then grades the answer. The claim is about method, not intelligence: the model
+may well reach the right verdict, and when it does the scorecard says "Agrees
+with the engine" in plain words. What a direct answer cannot do is prove it
+searched every path, use only the bank's real bounds, refuse to guess, or give
+the same answer twice.
+
+**What is sent.** `buildChallengeBundle` (`src/domain/challenge.ts`) produces the
+instructions, the clause text, the transaction time and the complete capability
+graph JSON, the same file the engine reads. `/api/challenge` sends exactly that
+as one user message, to the same NVIDIA endpoint and model as extraction, at
+temperature 0 exactly as extraction uses, twice in parallel. The temperature is
+not raised to manufacture drift: if the runs agree, the scorecard says so. The
+panel's "Files sent to the model" disclosure shows all of it.
+
+**How it is graded.** `gradeChallenge` is pure and never reads the model's prose
+for the numbers it reports:
+
+- verdict, against the engine's decision for the same clause and graph version;
+- the paths the model listed, against the engine's exhaustive set of complete
+  paths (32 on either graph), with the reason each non-path is not a path;
+- its verdict on each real path, against the engine's verdict on that path;
+- every number, cutoff and office in its proposed fix, against the values the
+  graph actually contains;
+- assumptions it declared, plus any the grader detects (a timezone read into a
+  clause that states none), beside the unknowns the engine carried without guessing;
+- run-to-run consistency, beside the engine's requirement hash, which is
+  identical by construction.
+
+**No model answer is ever fabricated.** Each reply is parsed with the same
+tolerant JSON parser as extraction and validated against `ModelAnswerSchema`,
+with one retry that feeds the error back. A run that still fails is dropped. If
+no run succeeds the route returns `{ source: 'unavailable', reason }` and the
+panel shows one line and no scorecard. The only fallback is
+`src/fixtures/challenge-recorded.json`: real responses recorded from real calls,
+each with `recorded_at`, model, `clause_id` and `graph_version`, served with
+`source: 'recorded'` and its timestamp on the badge, and only when the live call
+fails for that same clause and graph version.
+
+**Timing.** Reading the whole graph and listing paths is a ~1,500-token reply,
+and the hosted endpoint took 31 to 39 s to produce it when its queue was short
+and more than 55 s when it was not, so the route uses extraction's budget pattern
+(one budget per run, retry included) at 110 s rather than 25 s, inside a 120 s
+function. It launches no hedged duplicates, because concurrent
+calls on one key starve each other here: 39 s alone, 133 s beside a twin. For the
+same reason the panel asks for its two runs in turn, one per request, and only
+after the page's own extraction calls have settled. Run 1 is shown and graded as
+soon as it lands, and the reproducibility line fills in when run 2 does. Only the
+clause on screen is asked about, and again when the graph version changes.
+`/api/challenge` returns `x-challenge-source`, `x-challenge-runs`,
+`x-challenge-calls` and `x-challenge-ms`, and logs one JSON line per request
+(never the key or the reply).
+
+**Kill switch.** Build with `VITE_CHALLENGE_MODE=off` and the panel, and every
+call it would make, is gone. Nothing else on the page changes.
+
 ## Repair proposals
 
 The model may write the sentence. It may not invent the number. Every proposal is
@@ -241,6 +301,9 @@ src/domain/schema.ts       Zod schemas — the single source of truth for Requir
 src/fixtures/              capability graph v7 and v8, agreement, cached extractions
 src/lib/extract.ts         Nemotron call, hedging, one retry, output guards, fixture fallback
 api/extract.ts             Vercel Function wrapping src/lib/extract.ts
+src/domain/challenge.ts    challenge mode: the bundle sent to the model, its answer schema, the grader
+src/lib/challenge.ts       parallel model runs, one retry each, recorded-only fallback
+api/challenge.ts           Vercel Function wrapping src/lib/challenge.ts
 src/routes/Review.tsx      select a clause, read and correct the extraction
 src/routes/Results.tsx     verdict, conflicts, candidate paths, repair, re-test, proof
 ```
