@@ -1,5 +1,8 @@
 // The synthetic document packet: one agreement and four operating policies.
 //
+// The policies are the bank's standing state: the app holds the ones in force for
+// each capability version. The agreement is what changes from run to run.
+//
 // The files are bundled as raw text and parsed at runtime by parse.ts. Nothing
 // here is pre-parsed: the workspace's "Read documents" step is this module
 // actually running. Browser-only (Vite `?raw`), so api/ must not import it.
@@ -67,6 +70,26 @@ const versionLabel = (v: string) => (/^\d/.test(v) ? `v${v}` : v)
 
 /** The sample packet: every file bundled with the app, both approvals registers included. */
 export const samplePacketFiles = (): PacketFile[] => [AGREEMENT, NOTICE_INTAKE, FUNDING, BOOKING, APPROVALS_V3, APPROVALS_V4]
+
+/** The sample agreement: the one file an analyst would otherwise hand over. */
+export const sampleAgreementFile = (): PacketFile => AGREEMENT
+
+/** Every bundled policy file, both approvals registers included. */
+export const samplePolicyFiles = (): PacketFile[] => [NOTICE_INTAKE, FUNDING, BOOKING, APPROVALS_V3, APPROVALS_V4]
+
+const standing = new Map<number, PacketDocument[]>()
+
+/** The bank's standing policies for one capability version: held by the app, never asked for. */
+export function standingPolicies(graphVersion: number): PacketDocument[] {
+  const files = POLICY_FILES[graphVersion]
+  if (!files) throw new Error(`No policy packet for bank capabilities v${graphVersion}`)
+  let known = standing.get(graphVersion)
+  if (!known) {
+    known = files.map(parseFile)
+    standing.set(graphVersion, known)
+  }
+  return known
+}
 
 /** A document a registry version needs, identified by what the document says it is, not by its filename. */
 export interface RequiredDocument {

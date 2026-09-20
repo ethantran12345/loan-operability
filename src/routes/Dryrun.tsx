@@ -14,8 +14,8 @@ import { mostSevere } from '@/domain/evaluate'
 import { TRANSACTION_TIME, agreement, capabilityGraph, capabilityGraphs } from '@/domain/fixtures'
 import { applyRepairs } from '@/domain/repair'
 import { buildComparisonPacket } from '@/documents/bundle'
-import { evidenceForCheck, type EvidencePassage } from '@/documents/citations'
-import { checkIntake, rememberIntake, rememberedIntake, sampleIntakeFiles, type IntakeFile } from '@/documents/intake'
+import { evidenceForCheck, verifyCitations, type EvidencePassage } from '@/documents/citations'
+import { addIntakeFiles, checkIntake, rememberIntake, rememberedIntake, sampleAgreementIntake, samplePolicyIntake, withoutPolicies, type IntakeFile } from '@/documents/intake'
 import { locateFailing } from '@/documents/locate'
 import { extractionFor, type Extraction } from '@/lib/extractClient'
 import { readIntakeFile } from '@/lib/dropFiles'
@@ -82,11 +82,14 @@ export function Dryrun() {
   // When Run was pressed. A run this page load already finished is shown whole: there is nothing left to reveal.
   const [startedAt, setStartedAt] = useState<number | null>(ranThisLoad ? -Infinity : null)
   const started = startedAt !== null
-  // What the analyst handed over. The run reads these files and no others: until they make a whole packet, nothing is read.
+  // What the analyst handed over. The run reads these files and the bank's standing policies, and nothing else:
+  // until an agreement is in and the packet reads, nothing is read.
   const [files, setFiles] = useState<IntakeFile[]>(rememberedIntake)
   const intake = useMemo(() => checkIntake(files, version), [files, version])
-  const run = useAgreementReview(version, started, intake.ready ? files : null)
+  const run = useAgreementReview(version, started, intake.ready ? intake.packet_files : null)
   const { packet, citations } = run
+  // The policies are in force before any agreement is, so their citations are traced without waiting for a packet.
+  const standingCitations = useMemo(() => verifyCitations(graph, intake.policies.map((p) => p.doc)), [graph, intake.policies])
   // Findings follow the document, not the fixture's listing order.
   const clauses = useMemo(() => [...run.clauses].sort((a, b) => a.clause.start - b.clause.start), [run.clauses])
 
@@ -111,7 +114,7 @@ export function Dryrun() {
   const closeDrawer = useCallback(() => setDrawer(false), [])
 
   useEffect(() => rememberIntake(files), [files])
-  // A registry switch can ask for a policy that was never handed over. The run goes back to intake and names it.
+  // Demo tools can replace policy files under a run. If the files stop making a packet, the run goes back to intake, which says why.
   useEffect(() => {
     if (!started || intake.ready) return
     ranThisLoad = false
@@ -120,10 +123,7 @@ export function Dryrun() {
 
   const addFiles = useCallback((list: File[]) => {
     if (list.length === 0) return
-    void Promise.all(list.map(readIntakeFile)).then((incoming) =>
-      // A file handed over again replaces the one with its name. Sample files never sit beside dropped ones.
-      setFiles((prev) => [...prev.filter((p) => p.source === 'dropped' && !incoming.some((f) => f.file === p.file)), ...incoming]),
-    )
+    void Promise.all(list.map(readIntakeFile)).then((incoming) => setFiles((prev) => addIntakeFiles(prev, incoming)))
   }, [])
 
   // A response lands when the hook hands it over. Its reveal starts then, or after act one, whichever is later.
@@ -333,8 +333,15 @@ export function Dryrun() {
       notice: `${agreement.disclaimer} ${graph.disclaimer}`,
       agreement: { document_id: packet.agreement.meta.document_id, version: packet.agreement.meta.version, sha256: packet.agreement.sha256 },
       packet: {
-        source: intake.source === 'sample' ? 'sample packet bundled with the app' : 'files handed over by the analyst',
-        documents: packet.documents.map((d) => ({ file: d.file, document_id: d.meta.document_id, version: d.meta.version, sha256: d.sha256 })),
+        source: intake.source === 'sample' ? 'sample agreement bundled with the app' : 'agreement handed over by the analyst',
+        documents: packet.documents.map((d) => ({
+          file: d.file,
+          document_id: d.meta.document_id,
+          version: d.meta.version,
+          sha256: d.sha256,
+          // 'standing' is the bank's policy as the app holds it. Anything else was handed over for this run.
+          source: d.meta.kind === 'agreement' ? intake.source : (intake.policies.find((p) => p.doc.meta.document_id === d.meta.document_id && p.doc.sha256 === d.sha256)?.source ?? null),
+        })),
       },
       registry_version: version,
       transaction_time: TRANSACTION_TIME,
@@ -363,6 +370,10 @@ export function Dryrun() {
           version={version}
           clauses={clauses}
           diagnostics={diagnostics}
+          policies={intake.policies}
+          onPolicyFiles={addFiles}
+          onSamplePolicies={() => setFiles((prev) => [...withoutPolicies(prev), ...samplePolicyIntake()])}
+          onStandingPolicies={() => setFiles(withoutPolicies)}
           copied={copied}
           busy={busy}
           onClose={closeDrawer}
@@ -387,8 +398,7 @@ export function Dryrun() {
   const footer = (
       <footer className="flex shrink-0 items-center gap-4 border-t border-rule bg-sheet px-5 py-1.5 text-xs text-ink-faint">
         <p className="min-w-0 truncate" title={`${agreement.disclaimer} ${capabilityGraph.disclaimer}`}>
-          <span className="font-semibold text-ink-soft">Synthetic data</span> built for a hackathon demonstration. Not a real credit agreement, not
-          any real bank's operations, and not legal or financial advice.
+          <span className="font-semibold text-ink-soft">Synthetic data.</span> Not a real agreement or a real bank. Not legal or financial advice.
         </p>
         <button
           type="button"
@@ -403,7 +413,7 @@ export function Dryrun() {
       </footer>
   )
 
-  // Before a run, and whenever the files on hand do not make a packet, the screen is the intake.
+  // Before a run, and whenever the agreement on hand does not make a packet, the screen is the intake.
   // A packet the reader refuses is said here, by its reason, instead of blanking the product.
   if (!started || !packet || !citations || !doc) {
     const canRun = intake.ready && packet !== null && !run.readError
@@ -419,16 +429,12 @@ export function Dryrun() {
               type="button"
               data-control="run"
               disabled={!canRun}
-              title={canRun ? undefined : 'Add the agreement and the bank policies first'}
+              title={canRun ? undefined : 'Add the draft agreement first'}
               onClick={start}
               className="rounded-md bg-ink px-4 py-1.5 text-sm font-semibold text-sheet hover:bg-ink-soft disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-faint"
             >
               Run dry run
             </button>
-            <p data-testid="registry-label" className="text-xs text-ink-faint">
-              Bank capabilities v{version}
-              {citations ? ` · ${citations.verified}/${citations.verified + citations.mismatched} traced to policy` : ''}
-            </p>
             <button
               type="button"
               data-control="demo"
@@ -443,15 +449,16 @@ export function Dryrun() {
         </header>
         <IntakePanel
           intake={intake}
+          traced={{ verified: standingCitations.verified, of: standingCitations.verified + standingCitations.mismatched }}
           readError={run.readError}
           reading={reading}
           onRead={setReading}
           onFiles={addFiles}
           onSample={() => {
-            // Nobody has seen the sample's files, so the agreement opens: what is about to be tested, before Run.
-            const sample = sampleIntakeFiles()
-            setFiles(sample)
-            setReading(checkIntake(sample, version).entries.find((e) => e.doc?.meta.kind === 'agreement')?.file ?? null)
+            // Nobody has seen the sample agreement, so it opens: what is about to be tested, before Run.
+            const sample = sampleAgreementIntake()
+            setFiles((prev) => addIntakeFiles(prev, [sample]))
+            setReading(sample.file)
           }}
           onRemove={(file) => setFiles((prev) => prev.filter((f) => f.file !== file))}
           onClear={() => setFiles([])}
@@ -487,6 +494,7 @@ export function Dryrun() {
     searched.length > 0 ? `${searchedRoutes} bank routes checked in ${ms(searchedMs)}` : 'Waiting for the clause terms',
     'real output, paced for reading',
   ].join(' · ')
+  const replacedPolicies = intake.policies.filter((p) => p.source !== 'standing').length
   const retested = Object.fromEntries(cards.flatMap((c) => (c.flipped ? [[c.id, retests[c.id]!.report.decision]] : [])))
   const diagnostics = done
     ? `${packet.documents.length} files read in ${ms(packet.read_ms)} · ${citations.verified}/${citations.verified + citations.mismatched} citations verified · ${live} live, ${extracted.length - live} cached · ${routes} routes in ${ms(clauses.reduce((n, c) => n + (c.evaluated?.ms ?? 0), 0))}`
@@ -530,7 +538,8 @@ export function Dryrun() {
           )}
           <p data-testid="registry-label" className="text-xs text-ink-faint">
             <span data-testid="packet-source" className={intake.source === 'sample' ? 'font-semibold text-accent' : undefined}>
-              {intake.source === 'sample' ? 'Sample packet' : `${packet.documents.length} files added`}
+              {intake.source === 'sample' ? 'Sample agreement' : 'Your agreement'}
+              {replacedPolicies > 0 && ` + ${replacedPolicies} ${replacedPolicies === 1 ? 'policy' : 'policies'} added`}
             </span>
             {' · '}
             Bank capabilities {entry ? `${entry[1]} · ${shortDate(entry[2]!)}` : `v${version}`} · {citations.verified}/{citations.verified + citations.mismatched} traced to policy

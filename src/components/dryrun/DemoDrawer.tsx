@@ -5,19 +5,24 @@ import { Badge } from '@/components/ui/badge'
 import { capabilityGraphs } from '@/domain/fixtures'
 import { cn } from '@/lib/cn'
 import { canRetryLive, sourceDetail } from '@/lib/extractClient'
+import type { PolicyInForce } from '@/documents/intake'
 import type { ClauseReview } from '@/lib/useAgreementReview'
 
 const ACTION = 'rounded-md border border-rule bg-sheet px-3 py-1.5 text-sm font-semibold text-ink hover:border-ink-faint'
 
 /**
  * Everything a judge needs and an analyst does not: the registry version, the
- * chat packet, Challenge mode, the staged run, extraction diagnostics, and the
+ * policy packet, the chat packet, Challenge mode, the staged run, extraction diagnostics, and the
  * older views.
  */
 export function DemoDrawer({
   version,
   clauses,
   diagnostics,
+  policies,
+  onPolicyFiles,
+  onSamplePolicies,
+  onStandingPolicies,
   copied,
   busy,
   onClose,
@@ -34,6 +39,11 @@ export function DemoDrawer({
   clauses: ClauseReview[]
   /** Timings and counts from the last run. They live here, not in the product view. */
   diagnostics: string | null
+  /** The policies in force, so the drawer can say how many are the bank's standing copy. */
+  policies: PolicyInForce[]
+  onPolicyFiles: (files: File[]) => void
+  onSamplePolicies: () => void
+  onStandingPolicies: () => void
   copied: string | null
   /** Set while a link is waiting on something, e.g. an extraction Results needs. */
   busy: string | null
@@ -48,6 +58,8 @@ export function DemoDrawer({
   onRetryLive: (clauseId: string) => void
 }) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const policyPicker = useRef<HTMLInputElement>(null)
+  const replaced = policies.filter((p) => p.source !== 'standing').length
   useEffect(() => {
     closeRef.current?.focus()
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -88,6 +100,35 @@ export function DemoDrawer({
                 </button>
               ))}
             </div>
+          </Tool>
+
+          <Tool
+            title="Policy packet"
+            caption="The bank's policies are standing state: the ones in force for the capabilities version are loaded when the app opens, and a run never asks for them. A policy file chosen here is parsed, hashed and labelled like any handed-over file, and replaces the standing copy with the same document id and version. The sample policy files are the five synthetic files in demo-packet/, labelled as the sample."
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" data-control="choose-policies" onClick={() => policyPicker.current?.click()} className={ACTION}>Choose policy files</button>
+              <button type="button" data-control="sample-policies" onClick={onSamplePolicies} className={ACTION}>Load the sample policy files</button>
+              <input
+                ref={policyPicker}
+                type="file"
+                multiple
+                data-testid="policy-picker"
+                className="sr-only"
+                onChange={(e) => {
+                  onPolicyFiles(Array.from(e.target.files ?? []))
+                  e.target.value = ''
+                }}
+              />
+            </div>
+            <p role="status" data-testid="policy-state" className="mt-1.5 text-xs text-ink-soft">
+              {replaced === 0 ? `All ${policies.length} policies in force are the standing copies.` : `${replaced} of ${policies.length} policies in force ${replaced === 1 ? 'was' : 'were'} handed over.`}{' '}
+              {replaced > 0 && (
+                <button type="button" data-control="standing-policies" onClick={onStandingPolicies} className="underline underline-offset-2 hover:text-ink">
+                  Back to the standing policies
+                </button>
+              )}
+            </p>
           </Tool>
 
           <Tool title="Chat packet" caption="The same five documents and bank capabilities, for pasting into a chat model.">

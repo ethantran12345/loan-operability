@@ -1,24 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Check, FileQuestion, FolderOpen, Upload, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, FileQuestion, FolderOpen, Landmark, Upload, X } from 'lucide-react'
 import { DocumentRow, versionLabel } from '@/components/workspace/DocumentTray'
 import { AgreementPane } from './AgreementPane'
-import type { Intake, IntakeEntry } from '@/documents/intake'
-import { FORMAT_NOTE, type RequiredDocument } from '@/documents/packet'
+import type { Intake, IntakeEntry, PolicyInForce } from '@/documents/intake'
+import { FORMAT_NOTE } from '@/documents/packet'
 import { cn } from '@/lib/cn'
 import { filesFromDrop } from '@/lib/dropFiles'
 
 const NONE: ReadonlySet<string> = new Set()
 const kilobytes = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`)
 
+/** The reader's key for a policy in force. Entries are keyed by file name, and no file name has a colon. */
+const policyKey = (p: PolicyInForce) => `policy:${p.doc.meta.document_id}`
+
 /**
- * Where a run starts: the analyst hands over the deal files, and each one is
- * read, parsed and hashed as it lands. The tray only ever describes the text of
- * the file it was given. The sample packet is a separate control and is labelled
- * as the sample on every row. Any file that parsed opens in the reader, so the
- * packet can be read before it is run.
+ * Where a run starts: the analyst hands over the draft agreement, and it is read,
+ * parsed and hashed as it lands. The bank's policies are already here, shown once
+ * as one block that opens them in the reader. The tray only ever describes the
+ * text of a file it was given, and the sample agreement is labelled as the sample
+ * on its row.
  */
 export function IntakePanel({
   intake,
+  traced,
   readError,
   reading,
   onRead,
@@ -28,9 +32,11 @@ export function IntakePanel({
   onClear,
 }: {
   intake: Intake
+  /** Capability values found word for word in the policies in force, out of those that cite one. */
+  traced: { verified: number; of: number }
   /** The run's own read of the packet refusing it, should that ever disagree with the intake check. */
   readError: string | null
-  /** The file open in the reader, by name. null: the drop zone. */
+  /** The document open in the reader: a handed-over file by name, or a policy in force. null: the drop zone. */
   reading: string | null
   onRead: (file: string | null) => void
   onFiles: (files: File[]) => void
@@ -70,20 +76,19 @@ export function IntakePanel({
   }, [onFiles])
 
   const sample = intake.source === 'sample'
-  const present = (r: RequiredDocument) =>
-    intake.entries.filter((e) => e.status === 'needed' && e.doc && (r.kind === 'agreement' ? e.doc.meta.kind === 'agreement' : e.doc.meta.document_id === r.document_id && e.doc.meta.version === r.version))
+  const needed = intake.entries.filter((e) => e.status === 'needed')
   const unused = intake.entries.filter((e) => e.status === 'unused')
   const rejected = intake.entries.filter((e) => e.status === 'rejected')
   const blockers = [...intake.blockers, ...(readError && intake.ready ? [readError] : [])]
+  const policyOpen = intake.policies.find((p) => policyKey(p) === reading) ?? null
   // A drag takes the drop zone back, so the target is on screen while files are over the window.
-  const open = dragging ? null : (intake.entries.find((e) => e.file === reading)?.doc ?? null)
+  const open = dragging ? null : (intake.entries.find((e) => e.file === reading)?.doc ?? policyOpen?.doc ?? null)
 
-  const remove = (e: IntakeEntry) =>
-    !sample && (
+  const remove = (e: IntakeEntry) => (
       <button type="button" aria-label={`Remove ${e.file}`} title={`Remove ${e.file}`} onClick={() => onRemove(e.file)} className="ml-auto shrink-0 rounded p-1 text-ink-faint hover:bg-rule-soft hover:text-ink">
         <X aria-hidden className="size-3.5" />
       </button>
-    )
+  )
 
   const row = (e: IntakeEntry) => (
     <li
@@ -116,20 +121,6 @@ export function IntakePanel({
     </li>
   )
 
-  const needed = (r: RequiredDocument) => {
-    const hits = present(r)
-    if (hits.length > 0) return hits.map(row)
-    return (
-      <li key={r.file} data-intake="missing" className="rounded-md border border-dashed border-rule px-2.5 py-1.5">
-        <DocumentRow kind={r.kind} title={r.title} identity={`${r.document_id} · ${versionLabel(r.version)}`} muted>
-          <span className="mt-0.5 block text-[0.7rem] text-ink-soft">
-            <span className="font-semibold text-manual">Still needed</span> · sample file: <span className="font-mono text-[0.68rem]">{r.file}</span>
-          </span>
-        </DocumentRow>
-      </li>
-    )
-  }
-
   const heading = 'px-2.5 pt-1 pb-1 text-[0.68rem] font-semibold tracking-wide text-ink-faint uppercase'
   return (
     <main id="main" className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_28.75rem]">
@@ -151,7 +142,7 @@ export function IntakePanel({
           />
         </section>
       ) : (
-      <section aria-label="Add the deal packet" className="flex min-h-0 min-w-0 flex-col p-6">
+      <section aria-label="Add the draft agreement" className="flex min-h-0 min-w-0 flex-col p-6">
         <div
           data-testid="drop-zone"
           data-dragging={dragging || undefined}
@@ -161,14 +152,15 @@ export function IntakePanel({
           )}
         >
           <Upload aria-hidden className={cn('size-9', dragging ? 'text-accent' : 'text-ink-faint')} />
-          <h1 className="mt-4 text-xl font-semibold tracking-tight">{dragging ? 'Drop to add these files' : 'Drop the deal packet here'}</h1>
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-soft">
-            The draft credit agreement and the bank's current policies. Files or a whole folder. The check uses only the files you add.
-          </p>
+          <h1 className="mt-4 text-xl font-semibold tracking-tight">{dragging ? 'Drop to add' : 'Drop the draft agreement here'}</h1>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-soft">The bank's policies are already loaded.</p>
           <div className="mt-5 flex items-center gap-3">
             <button type="button" data-control="choose-files" onClick={() => picker.current?.click()} className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-sheet px-3.5 py-1.5 text-sm font-semibold text-ink hover:bg-rule-soft">
               <FolderOpen aria-hidden className="size-4" />
-              Choose files
+              Choose file
+            </button>
+            <button type="button" data-control="sample" onClick={onSample} className="rounded-md border border-accent/40 bg-accent-soft px-3.5 py-1.5 text-sm font-semibold text-accent hover:border-accent">
+              Load the sample agreement
             </button>
             <input
               ref={picker}
@@ -183,17 +175,7 @@ export function IntakePanel({
               }}
             />
           </div>
-          <p className="mt-5 max-w-md text-xs leading-relaxed text-ink-faint">
-            {FORMAT_NOTE}
-          </p>
-        </div>
-        <div className="mt-4 flex shrink-0 items-center gap-3 rounded-lg border border-rule bg-sheet px-4 py-2.5">
-          <p className="min-w-0 text-xs leading-relaxed text-ink-soft">
-            <span className="font-semibold text-ink">Don't have files?</span> Load six synthetic sample files. They stay labelled as the sample.
-          </p>
-          <button type="button" data-control="sample" onClick={onSample} className="ml-auto shrink-0 rounded-md border border-accent/40 bg-accent-soft px-3.5 py-1.5 text-sm font-semibold text-accent hover:border-accent">
-            Load the sample packet
-          </button>
+          <p className="mt-5 max-w-md text-xs leading-relaxed text-ink-faint">{FORMAT_NOTE}</p>
         </div>
       </section>
       )}
@@ -201,7 +183,11 @@ export function IntakePanel({
       <aside aria-label="Files added" className="flex min-h-0 flex-col border-l border-rule bg-sheet">
         <div className="flex shrink-0 items-center gap-2 border-b border-rule-soft px-4 py-2">
           <p data-testid="intake-source" className="text-xs font-semibold text-ink">
-            {intake.entries.length === 0 ? 'No files yet' : sample ? 'Sample packet · bundled with the app' : `${intake.entries.length} ${intake.entries.length === 1 ? 'file' : 'files'} added`}
+            {intake.entries.length === 0
+              ? 'No agreement yet'
+              : intake.entries.every((e) => e.source === 'sample')
+                ? `Sample ${intake.entries.length === 1 && sample ? 'agreement' : 'files'} · bundled with the app`
+                : `${intake.entries.length} ${intake.entries.length === 1 ? 'file' : 'files'} added`}
           </p>
           {intake.entries.length > 0 && (
             <button type="button" onClick={onClear} className="ml-auto text-xs text-ink-soft underline underline-offset-2 hover:text-ink">
@@ -231,10 +217,18 @@ export function IntakePanel({
               </ul>
             </>
           )}
-          <p className={heading}>Agreement</p>
-          <ul className="space-y-0.5">{intake.required.filter((r) => r.kind === 'agreement').map(needed)}</ul>
-          <p className={cn(heading, 'mt-2')}>Bank policies · capabilities v{intake.graph_version}</p>
-          <ul className="space-y-0.5">{intake.required.filter((r) => r.kind === 'policy').map(needed)}</ul>
+          {needed.some((e) => e.doc!.meta.kind === 'agreement') && (
+            <>
+              <p className={heading}>Agreement</p>
+              <ul className="space-y-0.5">{needed.filter((e) => e.doc!.meta.kind === 'agreement').map(row)}</ul>
+            </>
+          )}
+          {needed.some((e) => e.doc!.meta.kind === 'policy') && (
+            <>
+              <p className={cn(heading, 'mt-2')}>Policies you added</p>
+              <ul className="space-y-0.5">{needed.filter((e) => e.doc!.meta.kind === 'policy').map(row)}</ul>
+            </>
+          )}
           {unused.length > 0 && (
             <>
               <p className={cn(heading, 'mt-2')}>Not needed for this check</p>
@@ -242,14 +236,61 @@ export function IntakePanel({
             </>
           )}
         </div>
+        <section aria-label="Bank policies in force" data-testid="standing-policies" className="shrink-0 border-t border-rule-soft p-2">
+          <button
+            type="button"
+            data-control="policies"
+            aria-expanded={policyOpen !== null}
+            title={policyOpen ? 'Close the policies' : 'Read the policies'}
+            onClick={() => onRead(policyOpen ? null : policyKey(intake.policies[0]!))}
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-rule-soft"
+          >
+            <Landmark aria-hidden className="size-4 shrink-0 text-ink-faint" />
+            <span data-testid="registry-label" className="min-w-0">
+              <span className="block text-xs font-semibold text-ink">Bank capabilities v{intake.graph_version}</span>
+              <span className="block text-[0.7rem] text-ink-soft">
+                {intake.policies.length} policies in force ·{' '}
+                <span className={traced.verified < traced.of ? 'font-semibold text-manual' : undefined}>
+                  {traced.verified}/{traced.of} citations traced
+                </span>
+              </span>
+            </span>
+            {policyOpen ? <ChevronDown aria-hidden className="ml-auto size-4 shrink-0 text-ink-faint" /> : <ChevronRight aria-hidden className="ml-auto size-4 shrink-0 text-ink-faint" />}
+          </button>
+          {policyOpen && (
+            <ul className="mt-1 space-y-0.5">
+              {intake.policies.map((p) => (
+                <li key={policyKey(p)} data-policy={p.source}>
+                  <button
+                    type="button"
+                    data-control="read-policy"
+                    aria-pressed={p === policyOpen}
+                    onClick={() => onRead(policyKey(p))}
+                    className={cn('flex w-full items-baseline gap-2 rounded-md border px-2.5 py-1 text-left text-xs', p === policyOpen ? 'border-accent/50 bg-accent-soft' : 'border-transparent hover:bg-rule-soft')}
+                  >
+                    <span className="min-w-0 truncate text-ink">{p.doc.meta.title}</span>
+                    <span className="ml-auto shrink-0 text-[0.68rem] text-ink-soft">
+                      {p.doc.meta.document_id} · {versionLabel(p.doc.meta.version)}
+                    </span>
+                    {p.source !== 'standing' && (
+                      <span className="shrink-0 rounded bg-accent-soft px-1 text-[0.68rem] font-semibold text-accent" title={`Read from ${p.doc.file}, in place of the bank's standing copy`}>
+                        {p.source === 'sample' ? 'Sample' : 'Added'}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         <div role="status" data-testid="intake-state" data-ready={intake.ready && !readError} className="shrink-0 border-t border-rule px-4 py-2.5 text-xs leading-relaxed">
           {blockers.length === 0 ? (
             <p className="flex items-center gap-1.5 font-semibold text-pass">
               <Check aria-hidden className="size-3.5" />
-              {sample ? 'Sample packet ready. Press Run dry run.' : 'All files ready. Press Run dry run.'}
+              {sample ? 'Sample agreement ready. Press Run dry run.' : 'Agreement ready. Press Run dry run.'}
             </p>
           ) : intake.entries.length === 0 ? (
-            <p className="text-ink-soft">Add the agreement and every policy listed above to run.</p>
+            <p className="text-ink-soft">Add the draft agreement to run.</p>
           ) : (
             <ul className="space-y-1">
               {blockers.map((b) => (

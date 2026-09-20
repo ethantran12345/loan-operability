@@ -31,11 +31,11 @@ export function Workspace() {
   const graph = capabilityGraphs[version]!
   const otherVersion = GRAPH_VERSIONS.find((v) => v !== version) ?? null
 
-  // The workspace shows the packet the analyst handed over on the product screen, when that is a whole
-  // packet for this registry version. Opened on its own, it reads the bundled sample, as it always has.
+  // The workspace shows the agreement the analyst handed over on the product screen, with the policies that
+  // run had in force. Opened on its own, it reads the bundled sample, as it always has.
   const handedOver = useMemo(() => {
-    const files = rememberedIntake()
-    return files.length > 0 && checkIntake(files, version).ready ? files : undefined
+    const intake = checkIntake(rememberedIntake(), version)
+    return intake.ready ? intake.packet_files : undefined
   }, [version])
   const run = useAgreementReview(version, true, handedOver)
   const { packet, citations, clauses } = run
