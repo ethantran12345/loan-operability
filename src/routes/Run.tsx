@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, Check, DatabaseZap, Loader2, Pause, Play, Radio, RefreshCw, RotateCcw } from 'lucide-react'
+import { ArrowRight, Check, DatabaseZap, Loader2, Pause, Play, Radio, RefreshCw, RotateCcw, UserCheck } from 'lucide-react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { GRAPH_VERSIONS, changelogEntry } from '@/components/results/GraphVersion'
 import { DECISION_TEXT, Verdict } from '@/components/results/Verdict'
@@ -36,6 +36,12 @@ interface Evaluated {
   agreementVersion: string
   report: EvaluationReport
   ms: number
+}
+
+interface HumanApproval {
+  role: string
+  approvedAt: string
+  changes: number
 }
 
 function timedEvaluate(clause: ExtractedClause, graph: CapabilityGraph, agreementVersion: string): Evaluated {
@@ -124,6 +130,11 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
   speedRef.current = speed
   const freshRef = useRef(false)
   const stageRefs = useRef<Record<number, HTMLElement | null>>({})
+  const approvalResolveRef = useRef<(() => void) | null>(null)
+  const [awaitingApproval, setAwaitingApproval] = useState(false)
+  const [reviewerRole, setReviewerRole] = useState('Loan Operations')
+  const [reviewConfirmed, setReviewConfirmed] = useState(false)
+  const [humanApproval, setHumanApproval] = useState<HumanApproval | null>(null)
 
   // The runner. Every value it reveals is computed by the engine first; `tick`
   // only decides when the viewer sees it.
@@ -177,6 +188,9 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
       setView(EMPTY)
       setOpened(new Set())
       setReproduced({})
+      setAwaitingApproval(false)
+      setReviewConfirmed(false)
+      setHumanApproval(null)
       await tick(600)
 
       // 1. Clause
@@ -261,7 +275,20 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           }
           await tick(300)
           reveal('narrative', 1)
-          await tick(2600)
+          await tick(1000)
+
+          // The system may recommend contract language, but it cannot authorize
+          // a contractual change. An employee must review the evidence and
+          // release the deterministic re-test.
+          const approved = new Promise<void>((resolve) => {
+            approvalResolveRef.current = resolve
+          })
+          setAwaitingApproval(true)
+          await approved
+          alive()
+          approvalResolveRef.current = null
+          setAwaitingApproval(false)
+          await tick(400)
 
           const requirements = parsed.data.requirements.map((r, i) => (i === 0 ? applyRepairs(r, plan.proposals) : r))
           const revised = timedEvaluate(
@@ -310,6 +337,9 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
     })
     return () => {
       ctl.cancelled = true
+      const release = approvalResolveRef.current
+      approvalResolveRef.current = null
+      release?.()
     }
   }, [clause, version, graph, run])
 
@@ -351,13 +381,23 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
     navigate('/results')
   }
 
+  const { extraction, main, plan, revised, other, p } = view
+
   const reproduce = (key: string, e: Evaluated) => {
     const again = timedEvaluate(e.clause, e.graph, e.agreementVersion)
     const identical = JSON.stringify(again.report) === JSON.stringify(e.report)
     setReproduced((r) => ({ ...r, [key]: { identical, ms: again.ms } }))
   }
 
-  const { extraction, main, plan, revised, other, p } = view
+  const approveAndRetest = () => {
+    if (!awaitingApproval || !reviewConfirmed || !plan) return
+    setHumanApproval({
+      role: reviewerRole,
+      approvedAt: new Date().toISOString(),
+      changes: plan.proposals.length,
+    })
+    approvalResolveRef.current?.()
+  }
   const statusOf = (n: number): StageStatus =>
     view.skipped[n] ? 'skipped' : view.stage === n ? 'active' : view.stage > n ? 'done' : 'pending'
   const stage = (n: number) => ({
@@ -382,7 +422,6 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
   const mainCounts = mainResult ? countDecisions(mainResult.candidate_paths) : null
   const mainChecks = main ? (decisivePath(main)?.checks ?? []) : []
   const checkCounts = countDecisions(mainChecks.map((k) => ({ decision: k.verdict })))
-  const repairSources = plan ? [...new Set(plan.proposals.map((x) => x.capability_id))] : []
   const typeMs = speed === 'instant' ? 0 : speed === '2x' ? 160 : 320
   const animate = speed !== 'instant'
 
@@ -677,7 +716,9 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
             view.skipped[7] ??
             (plan &&
               (plan.proposals.length > 0
-                ? `${plan.proposals.length} change${plan.proposals.length === 1 ? '' : 's'}, all traced to ${repairSources.join(', ')}`
+                ? humanApproval
+                  ? `${plan.proposals.length} change${plan.proposals.length === 1 ? '' : 's'} approved by ${humanApproval.role}`
+                  : `${plan.proposals.length} proposed change${plan.proposals.length === 1 ? '' : 's'} · employee approval required`
                 : `No drafting change can resolve this: ${plan.unrepairable.map((u) => u.field).join(', ')}`))
           }
         >
@@ -694,6 +735,55 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
                   </figcaption>
                   <p className="mt-1.5 font-serif text-base leading-relaxed">{plan.narrative}</p>
                 </figure>
+              )}
+              {(awaitingApproval || humanApproval) && (
+                <section className={cn(
+                  'rounded-lg border px-4 py-4',
+                  humanApproval ? 'border-pass-rule bg-pass-soft' : 'border-accent bg-accent-soft',
+                )} aria-label="Employee review">
+                  <div className="flex items-start gap-3">
+                    <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', humanApproval ? 'bg-pass text-sheet' : 'bg-accent text-sheet')}>
+                      {humanApproval ? <Check aria-hidden className="size-5" /> : <UserCheck aria-hidden className="size-5" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold">{humanApproval ? 'Employee approved the revision' : 'Human decision required'}</h3>
+                      <p className="mt-0.5 max-w-3xl text-sm text-ink-soft">
+                        {humanApproval
+                          ? `${humanApproval.role} authorized ${humanApproval.changes} proposed changes. The engine may now re-test them.`
+                          : 'The system can recommend operable language, but it cannot change a contract. An authorized employee must review the cited bank limits and release the re-test.'}
+                      </p>
+                      {!humanApproval && (
+                        <div className="mt-3 grid items-end gap-3 lg:grid-cols-[15rem_minmax(0,1fr)_auto]">
+                          <label className="text-sm font-medium">
+                            Reviewer role
+                            <select
+                              value={reviewerRole}
+                              onChange={(event) => setReviewerRole(event.target.value)}
+                              className="mt-1 block min-h-10 w-full rounded-md border border-rule bg-sheet px-3 text-sm"
+                            >
+                              <option>Loan Operations</option>
+                              <option>Transaction Coordinator</option>
+                              <option>Legal Counsel</option>
+                            </select>
+                          </label>
+                          <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-rule bg-sheet px-3 py-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={reviewConfirmed}
+                              onChange={(event) => setReviewConfirmed(event.target.checked)}
+                              className="size-4 accent-[var(--color-accent)]"
+                            />
+                            I reviewed the proposed terms and their capability evidence.
+                          </label>
+                          <Button disabled={!reviewConfirmed} onClick={approveAndRetest}>
+                            <UserCheck aria-hidden className="size-4" />
+                            Approve and re-test
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
               )}
             </div>
           )}
@@ -783,6 +873,13 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           title="Leave an audit trail"
           summary={view.hash && `${allReproduced ? 'Reproducible' : 'Replay record'} · ${shortHash(view.hash)}`}
         >
+          {humanApproval && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-pass-rule bg-pass-soft px-3 py-2 text-sm">
+              <UserCheck aria-hidden className="size-4 text-pass" />
+              <strong>Human authorization recorded</strong>
+              <span className="text-ink-soft">{humanApproval.role} · {humanApproval.changes} changes · {new Date(humanApproval.approvedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+            </div>
+          )}
           <p className="mb-3 text-sm text-ink-soft">
             These records prove which contract terms, bank rules and engine version produced each answer.{' '}
             {view.hash && records.every((r) => r.key === 'revised' || r.e.report.replay.requirement_bundle_hash === view.hash) &&
@@ -816,6 +913,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         role="status"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-ink bg-ink px-4 py-2.5 text-center font-mono text-sm text-sheet sm:px-6"
       >
+        {awaitingApproval && <><strong>Waiting for employee approval</strong> · </>}
         Engine compute this run:{' '}
         <strong className="tabular-nums">
           {view.evaluations === 0 ? 'not run yet' : `${ms(view.engineMs)} (${view.evaluations} evaluation${view.evaluations === 1 ? '' : 's'})`}
