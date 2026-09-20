@@ -8,9 +8,9 @@ export const OPERATOR_WORDS: Record<AmountConstraint['operator'], string> = {
   eq: 'exactly',
 }
 
-/** snake_case / dotted identifiers as readable words. The raw id stays visible elsewhere. */
+/** snake_case / dotted identifiers as readable words. A place keeps its capitals. The raw id stays visible elsewhere. */
 export const humanize = (id: string) => {
-  const words = id.replace(/[._]/g, ' ').trim()
+  const words = id.replace(/[._]/g, ' ').trim().replace(/\bnew york\b/g, 'New York')
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 

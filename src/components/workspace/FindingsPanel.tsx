@@ -69,7 +69,7 @@ export function FindingsPanel(props: Props) {
               {OUTCOME_HEADLINE[overall]}
             </p>
             <p className="mt-0.5 text-xs text-ink-soft">
-              {counts.FAIL} fail · {counts.MANUAL} manual · {counts.PASS} pass · against registry v{version}. The agreement
+              {counts.FAIL} fail · {counts.MANUAL} manual · {counts.PASS} pass · against bank capabilities v{version}. The agreement
               takes its most severe clause result.
             </p>
           </>
@@ -113,7 +113,7 @@ function ClauseCard({ review, ...props }: Props & { review: ClauseReview }) {
             <span className="mt-0.5 block text-[0.7rem] font-medium text-manual">
               {[{ v: changed.graph.version, d: changed.report.decision }, { v: props.version, d: decision }]
                 .sort((a, b) => a.v - b.v)
-                .map((x) => `Registry v${x.v}: ${x.d}.`)
+                .map((x) => `Capabilities v${x.v}: ${x.d}.`)
                 .join(' ')}
             </span>
           )}
@@ -345,7 +345,7 @@ function ClauseBody({
           </ul>
           <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 font-mono text-[0.68rem] text-ink-soft">
             <dt>terms</dt><dd className="truncate">{evaluated.report.replay.requirement_bundle_hash}</dd>
-            <dt>registry</dt><dd>v{evaluated.report.replay.capability_graph_version} · evaluator {evaluated.report.replay.evaluator_version}</dd>
+            <dt>capabilities</dt><dd>v{evaluated.report.replay.capability_graph_version} · evaluator {evaluated.report.replay.evaluator_version}</dd>
             <dt>as of</dt><dd>{evaluated.report.replay.transaction_time}</dd>
           </dl>
           <div className="flex flex-wrap items-center gap-2">

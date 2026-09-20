@@ -9,8 +9,7 @@ import { diffWording, locateTerm, type WordingSide } from '@/documents/locate'
 import type { RepairProposal } from '@/domain/repair'
 import type { CapabilityGraph, CheckResult } from '@/domain/types'
 import { cn } from '@/lib/cn'
-import { OUTCOME_HEADLINE, bankSide, findingTitle, nextAction, requiredSide } from '@/lib/findingText'
-import { humanize } from '@/lib/format'
+import { OUTCOME_HEADLINE, bankSide, fieldLabel, findingTitle, nextAction, requiredSide } from '@/lib/findingText'
 import { sourceDetail } from '@/lib/extractClient'
 import { seconds } from '@/lib/runFormat'
 import { decisivePath, firstResult, type ClauseReview, type Evaluated } from '@/lib/useAgreementReview'
@@ -123,11 +122,11 @@ function WordingDiffs({ clauseText, proposals }: { clauseText: string; proposals
           return (
             <li key={p.field} data-diff={p.field} className="border-t border-rule-soft pt-1.5">
               <p className="mb-0.5 flex items-center gap-1.5 text-xs text-ink-soft">
-                {humanize(p.field)}
+                {fieldLabel(p.field)}
                 <Id title={p.rationale} className="whitespace-nowrap">{p.capability_id}</Id>
               </p>
               <div className="grid grid-cols-2 gap-x-4">
-                <DiffSide sign="−" side={diff.before} tone="fail" fallback={`Not in the clause. Read as: ${p.from}.`} />
+                <DiffSide sign="−" side={diff.before} tone="fail" fallback="Not stated in the clause." />
                 <DiffSide sign="+" side={diff.after} tone="pass" fallback={p.to} />
               </div>
             </li>
@@ -341,16 +340,16 @@ function LandedCard({
               live ? 'border-accent/25 bg-accent-soft text-accent' : extraction!.other_text ? 'border-fail-rule bg-fail-soft text-fail' : 'border-rule bg-rule-soft text-ink-soft',
             )}
           >
-            {live ? `Live Nemotron${upstream ? ` · ${seconds(upstream)}` : ''}` : extraction!.other_text ? 'Cached · not this text' : 'Cached fixture'}
+            {live ? `Live Nemotron${upstream ? ` · ${seconds(upstream)}` : ''}` : extraction!.other_text ? 'Cached · not this text' : 'Cached'}
           </span>
           <ChevronRight aria-hidden className={cn('size-4 shrink-0 text-ink-faint transition-transform', expanded && 'rotate-90', !ready && 'invisible')} />
         </span>
         <span className="mt-1 block text-sm text-ink-soft">
           {!stamped ? clause.headline : decision === 'PASS' || !lead ? OUTCOME_HEADLINE.PASS : findingTitle(lead, requirement)}
         </span>
-        {retry && (
-          <span data-testid="guard-retry" title={retry} className="mt-1.5 block animate-rise-in truncate text-xs text-manual">
-            Rejected: {retry} · asked again
+        {retry !== null && (
+          <span data-testid="guard-retry" title={retry || undefined} className="mt-1.5 block animate-rise-in truncate text-xs text-manual">
+            First reading rejected{retry && ` (${retry})`} · asked again
           </span>
         )}
         <span className="mt-2 flex flex-wrap items-start gap-1">
@@ -373,7 +372,7 @@ function LandedCard({
               <span aria-hidden className="relative block h-0.5 w-7 overflow-hidden rounded-full bg-rule-soft">
                 <span className="absolute inset-y-0 left-0 origin-left animate-draw rounded-full bg-accent/70" style={{ width: `${requirement.confidence * 100}%` }} />
               </span>
-              model {Math.round(requirement.confidence * 100)}%
+              confidence {Math.round(requirement.confidence * 100)}%
             </span>
           )}
         </span>
@@ -404,8 +403,8 @@ function LandedCard({
                           term
                             ? undefined
                             : requiredSide(check) === 'Agreement'
-                              ? 'The clause does not state this term, so there is nothing to quote.'
-                              : 'This comes from the bank route the clause needs, not from words in the clause.'
+                              ? 'The clause does not state this.'
+                              : "Set by the bank's route, not the clause's wording."
                         }
                         link="Open in agreement"
                         onOpen={() => onOpenAgreement(index)}
@@ -413,7 +412,7 @@ function LandedCard({
                       <div className="min-w-0 space-y-2">
                         {passages.length === 0 && (
                           <p className="text-[0.72rem] leading-snug text-ink-soft">
-                            No procedure in the packet is cited for this. The bank value comes from the registry record alone.
+                            No procedure in the packet covers this. The value is from the bank's capability record.
                           </p>
                         )}
                         {passages.map((p) => {
@@ -427,7 +426,7 @@ function LandedCard({
                               offset={para?.start ?? 0}
                               spans={p.highlights}
                               tone={TONE[check.verdict]}
-                              link="Open in procedure"
+                              link="Open the procedure"
                               onOpen={() => onOpenProcedure(index, p)}
                             />
                           )
@@ -441,21 +440,21 @@ function LandedCard({
           )}
           {alsoOpen.length > 0 && (
             <p className="text-sm text-ink-soft">
-              Also open: {alsoOpen.map((x) => findingTitle(x.check, requirement).toLowerCase()).join(', ')}.
+              Also needs a person: {alsoOpen.map((x) => findingTitle(x.check, requirement).toLowerCase()).join(', ')}.
             </p>
           )}
 
           {plan && plan.proposals.length > 0 ? (
             <div>
-              <p className="text-xs font-semibold">{flipped ? 'Changes applied in the re-test' : 'Proposed changes'}</p>
+              <p className="text-xs font-semibold">{flipped ? 'Redraft tested' : 'Proposed redraft'}</p>
               <WordingDiffs clauseText={clause.source_text} proposals={plan.proposals} />
               {retest && !flipped ? (
                 <p data-testid="retesting" className="mt-3 text-sm text-ink-soft">Re-testing the changed terms…</p>
               ) : retest ? (
                 <p data-testid="retest" className="mt-3 text-sm text-ink-soft">
                   {retest.report.decision === 'PASS'
-                    ? 'With these changes the clause fits one complete route. The agreement itself is unchanged until it is redrafted.'
-                    : `Still ${retest.report.decision} after these changes: ${left.map((k) => humanize(k.field).toLowerCase()).join(', ')}.`}
+                    ? 'With these changes the clause passes. The agreement file is unchanged.'
+                    : `Still ${retest.report.decision} after these changes: ${left.map((k) => fieldLabel(k.field).toLowerCase()).join(', ')}.`}
                 </p>
               ) : (
                 <>
@@ -475,7 +474,7 @@ function LandedCard({
               onClick={() => setRoutes((v) => !v)}
               className="text-xs text-ink-soft underline underline-offset-2 hover:text-ink"
             >
-              {routes ? 'Hide route search' : 'Show route search'}
+              {routes ? 'Hide the routes checked' : 'Show the routes checked'}
             </button>
             {routes && (
               <div className="mt-3">

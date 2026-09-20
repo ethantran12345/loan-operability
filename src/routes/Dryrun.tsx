@@ -19,7 +19,7 @@ import { checkIntake, rememberIntake, rememberedIntake, sampleIntakeFiles, type 
 import { locateFailing } from '@/documents/locate'
 import { extractionFor, type Extraction } from '@/lib/extractClient'
 import { readIntakeFile } from '@/lib/dropFiles'
-import { countDecisions, ms, seconds } from '@/lib/runFormat'
+import { countDecisions, ms, seconds, shortDate } from '@/lib/runFormat'
 import { useReviewSession } from '@/lib/session'
 import { decisivePath, firstResult, timedEvaluate, useAgreementReview, type Evaluated } from '@/lib/useAgreementReview'
 
@@ -377,7 +377,7 @@ export function Dryrun() {
           type="button"
           data-control="export"
           disabled={!done}
-          title={done ? 'Download the replay record of this run as JSON' : 'Run a dry run first'}
+          title={done ? "Download this run's record (JSON)" : 'Run a dry run first'}
           onClick={exportRecord}
           className="ml-auto shrink-0 text-ink-soft underline underline-offset-2 hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint disabled:no-underline"
         >
@@ -402,15 +402,15 @@ export function Dryrun() {
               type="button"
               data-control="run"
               disabled={!canRun}
-              title={canRun ? undefined : 'Hand over the agreement and every policy this registry version needs first'}
+              title={canRun ? undefined : 'Add the agreement and the bank policies first'}
               onClick={start}
               className="rounded-md bg-ink px-4 py-1.5 text-sm font-semibold text-sheet hover:bg-ink-soft disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-faint"
             >
               Run dry run
             </button>
             <p data-testid="registry-label" className="text-xs text-ink-faint">
-              Registry v{version}
-              {citations ? ` · ${citations.verified}/${citations.verified + citations.mismatched} citations verified` : ''}
+              Bank capabilities v{version}
+              {citations ? ` · ${citations.verified}/${citations.verified + citations.mismatched} traced to policy` : ''}
             </p>
             <button
               type="button"
@@ -464,11 +464,11 @@ export function Dryrun() {
   const statusLine = [
     answered.length === 0
       ? `Nemotron reading ${clauses.length} clauses`
-      : `Nemotron ${answered.length < clauses.length ? `${answered.length} of ${clauses.length}` : clauses.length} clauses${
+      : `Nemotron read ${answered.length < clauses.length ? `${answered.length} of ${clauses.length}` : clauses.length} clauses${
           answeredLive < answered.length ? ` · ${answeredLive} live, ${answered.length - answeredLive} cached` : ''
         }${liveMs.length > 0 ? ` · ${liveMs.length > 1 ? `${seconds(Math.min(...liveMs)).replace(' s', '')}–` : ''}${seconds(Math.max(...liveMs))}` : ''}`,
-    searched.length > 0 ? `Engine ${searchedRoutes} routes · ${ms(searchedMs)}` : 'Engine waiting for terms',
-    'every value shown is real output, paced for reading.',
+    searched.length > 0 ? `${searchedRoutes} bank routes checked in ${ms(searchedMs)}` : 'Waiting for the clause terms',
+    'real output, paced for reading',
   ].join(' · ')
   const retested = Object.fromEntries(cards.flatMap((c) => (c.flipped ? [[c.id, retests[c.id]!.report.decision]] : [])))
   const diagnostics = done
@@ -513,10 +513,10 @@ export function Dryrun() {
           )}
           <p data-testid="registry-label" className="text-xs text-ink-faint">
             <span data-testid="packet-source" className={intake.source === 'sample' ? 'font-semibold text-accent' : undefined}>
-              {intake.source === 'sample' ? 'Sample packet' : `${packet.documents.length} files handed over`}
+              {intake.source === 'sample' ? 'Sample packet' : `${packet.documents.length} files added`}
             </span>
             {' · '}
-            Registry {entry ? `${entry[1]} · ${entry[2]}` : `v${version}`} · {citations.verified}/{citations.verified + citations.mismatched} citations verified
+            Bank capabilities {entry ? `${entry[1]} · ${shortDate(entry[2]!)}` : `v${version}`} · {citations.verified}/{citations.verified + citations.mismatched} traced to policy
           </p>
           <button
             type="button"
@@ -564,7 +564,6 @@ export function Dryrun() {
         <aside aria-label="Findings" className="grid min-h-0 border-l border-rule">
           <FitColumn active={started && expandedId === null} resetKey={startedAt} scrollName="findings">
             <div className="px-5 py-4">
-            {started ? (
             <ul className="space-y-2">
               {cards.slice(0, found).map(({ review: c, id, askedAt, t, repairT }) => {
                 return (
@@ -593,11 +592,6 @@ export function Dryrun() {
                 )
               })}
             </ul>
-          ) : (
-            <p className="text-sm leading-relaxed text-ink-soft">
-              Run a dry run to check this agreement against the bank's verified capabilities
-            </p>
-          )}
             </div>
           </FitColumn>
         </aside>

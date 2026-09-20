@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { evaluate } from '@/domain/evaluate'
 import { TRANSACTION_TIME, agreement, cachedExtraction, capabilityGraph } from '@/domain/fixtures'
-import { countDecisions, fieldRows, firstBlockingField, leafCount, modelCallText, recordLines } from '../runFormat'
+import { humanize } from '../format'
+import { countDecisions, fieldRows, firstBlockingField, leafCount, modelCallText, recordLines, shortDate } from '../runFormat'
 
 const clause = cachedExtraction('credit-agreement-2.03-a')
 const report = evaluate([clause], capabilityGraph, TRANSACTION_TIME, agreement.agreement_version)
@@ -71,5 +72,17 @@ describe('modelCallText', () => {
     )
     expect(modelCallText({ clause, fallback_reason: 'api_unreachable' })).toBe('none made · cached fixture shown')
     expect(modelCallText(null)).toBe('not made yet')
+  })
+})
+
+describe('copy helpers', () => {
+  it('writes a registry date the way the header shows it, and leaves anything else alone', () => {
+    expect(shortDate('2026-09-09')).toBe('9 Sep 2026')
+    expect(shortDate('baseline')).toBe('baseline')
+  })
+
+  it('keeps the capitals of a place when it humanizes an id', () => {
+    expect(humanize('new_york')).toBe('New York')
+    expect(humanize('any_lending_office')).toBe('Any lending office')
   })
 })

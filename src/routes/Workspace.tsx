@@ -191,14 +191,14 @@ export function Workspace() {
         <ProgressStrip steps={steps} />
         <div className="ml-auto flex items-center gap-2">
           {copied && <span role="status" className="text-xs text-ink-soft">{copied}</span>}
-          <ToolbarButton onClick={copyPacket} title="The same documents and registry, as one text to paste into a chat model">
+          <ToolbarButton onClick={copyPacket} title="The same documents and bank capabilities, as one text to paste into a chat model">
             <ClipboardCopy aria-hidden className="size-3.5" />
             Copy chat packet
           </ToolbarButton>
           <ToolbarButton onClick={downloadPacket} title="Download the chat packet as a text file">
             <Download aria-hidden className="size-3.5" />
           </ToolbarButton>
-          <div role="radiogroup" aria-label="Bank capability registry version" className="inline-flex rounded-md border border-rule bg-rule-soft p-0.5">
+          <div role="radiogroup" aria-label="Bank capabilities version" className="inline-flex rounded-md border border-rule bg-rule-soft p-0.5">
             {GRAPH_VERSIONS.map((v) => (
               <button
                 key={v}
@@ -209,7 +209,7 @@ export function Workspace() {
                 onClick={() => setSearch(v === BASE_VERSION ? {} : { v: String(v) }, { replace: true })}
                 className={cn('rounded px-2 py-0.5 text-xs font-semibold', v === version ? 'bg-sheet text-ink shadow-sm' : 'text-ink-soft hover:text-ink')}
               >
-                Registry {changelogEntry(capabilityGraphs[v]!).label}
+                Capabilities {changelogEntry(capabilityGraphs[v]!).label}
               </button>
             ))}
           </div>

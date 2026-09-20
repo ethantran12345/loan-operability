@@ -36,9 +36,7 @@ const POLICY_FILES: Record<number, PacketFile[]> = {
   8: [NOTICE_INTAKE, FUNDING, BOOKING, APPROVALS_V4],
 }
 
-export const SUPPORTED_FORMAT = 'Packet text format v1 (UTF-8 .md)'
-export const UNSUPPORTED_FORMATS =
-  'PDF, DOCX and scanned or image documents are not supported. There is no OCR.'
+export const FORMAT_NOTE = 'Reads .md text files only. No PDF, DOCX or scans.'
 
 export interface PacketDocument extends ParsedDocument {
   file: string
@@ -85,7 +83,7 @@ const required = new Map<number, RequiredDocument[]>()
 /** What a packet must hold for one registry version: the agreement in review scope, and the policies in force. */
 export function requiredDocuments(graphVersion: number): RequiredDocument[] {
   const files = POLICY_FILES[graphVersion]
-  if (!files) throw new Error(`No policy packet for capability registry v${graphVersion}`)
+  if (!files) throw new Error(`No policy packet for bank capabilities v${graphVersion}`)
   let known = required.get(graphVersion)
   if (!known) {
     known = [AGREEMENT, ...files].map((f) => {
@@ -100,7 +98,7 @@ export function requiredDocuments(graphVersion: number): RequiredDocument[] {
 /** Read the bundled sample packet for one registry version. */
 export function readPacket(graphVersion: number): Packet {
   const files = POLICY_FILES[graphVersion]
-  if (!files) throw new Error(`No policy packet for capability registry v${graphVersion}`)
+  if (!files) throw new Error(`No policy packet for bank capabilities v${graphVersion}`)
   return readPacketFrom([AGREEMENT, ...files], graphVersion)
 }
 
@@ -126,7 +124,7 @@ export function readPacketFrom(given: PacketFile[], graphVersion: number): Packe
     .filter((r) => r.kind === 'policy')
     .map((r) => {
       const hits = parsed.filter((d) => d.meta.kind === 'policy' && d.meta.document_id === r.document_id && d.meta.version === r.version)
-      if (hits.length === 0) throw new Error(`Registry v${graphVersion} needs ${r.document_id} ${versionLabel(r.version)} (${r.file}) and it is not in the packet`)
+      if (hits.length === 0) throw new Error(`Bank capabilities v${graphVersion} needs ${r.document_id} ${versionLabel(r.version)} (${r.file}) and it is not in the packet`)
       if (hits.length > 1) throw new Error(`${hits.map((d) => d.file).join(' and ')} both say they are ${r.document_id} ${versionLabel(r.version)}`)
       return hits[0]!
     })

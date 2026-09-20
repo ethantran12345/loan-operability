@@ -176,7 +176,7 @@ export function cardPlan(review: ClauseReview, retest: Evaluated | null, still: 
   const route = routeChecks(chips, checks)
   // Only what the server reported: a second round with the model, and why the first reply was turned down.
   const d = review.extraction!.diagnostics
-  const retry = d && (d.rejection || d.attempts > 1) ? (d.rejection ?? 'the first reply was rejected') : null
+  const retry = d && (d.rejection || d.attempts > 1) ? (d.rejection ?? '') : null
   const line = cardTimeline(chips.length, marks.filter(Boolean).length + route.length, retry !== null, still)
 
   if (!retest || !review.plan) return { chips, marks, route, retry, line, repair: null }

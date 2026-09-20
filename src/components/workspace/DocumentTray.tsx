@@ -1,6 +1,6 @@
 import { Check, FileText, Landmark, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { SUPPORTED_FORMAT, UNSUPPORTED_FORMATS, changedBetweenVersions, type Packet, type PacketDocument } from '@/documents/packet'
+import { FORMAT_NOTE, changedBetweenVersions, type Packet, type PacketDocument } from '@/documents/packet'
 import type { CitationIndex } from '@/documents/citations'
 import type { DocumentKind } from '@/documents/parse'
 import type { ReactNode } from 'react'
@@ -73,11 +73,11 @@ export function DocumentTray({
                 </span>
               )}
               {!isAgreement && cited.total > 0 && (
-                <span title="Registry records whose values were found verbatim in this document">
-                  {cited.verified}/{cited.total} registry records verified
+                <span title="Capability records whose values were found verbatim in this document">
+                  {cited.verified}/{cited.total} capability records verified
                 </span>
               )}
-              {changed && <span className="rounded bg-manual-soft px-1 font-semibold text-manual">differs in registry v{otherVersion}</span>}
+              {changed && <span className="rounded bg-manual-soft px-1 font-semibold text-manual">differs in capabilities v{otherVersion}</span>}
             </span>
           </DocumentRow>
         </button>
@@ -91,12 +91,12 @@ export function DocumentTray({
         <p className="px-2.5 pt-1 pb-1 text-[0.68rem] font-semibold tracking-wide text-ink-faint uppercase">Agreement</p>
         <ul>{item(packet.agreement)}</ul>
         <p className="mt-3 px-2.5 pb-1 text-[0.68rem] font-semibold tracking-wide text-ink-faint uppercase">
-          Bank policies · registry v{packet.graph_version}
+          Bank policies · capabilities v{packet.graph_version}
         </p>
         <ul className="space-y-0.5">{packet.policies.map(item)}</ul>
       </div>
       <p className="border-t border-rule px-3 py-2 text-[0.68rem] leading-snug text-ink-faint">
-        Synthetic packet. Format read: {SUPPORTED_FORMAT}. {UNSUPPORTED_FORMATS}
+        Synthetic packet. {FORMAT_NOTE}
       </p>
     </nav>
   )

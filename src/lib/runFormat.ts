@@ -99,6 +99,12 @@ export const countDecisions = (paths: Pick<CandidatePath, 'decision'>[]): Record
 
 export const ms = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)} ms`
 export const seconds = (n: number) => `${(n / 1000).toFixed(1)} s`
+/** "2026-09-09" as "9 Sep 2026". Anything else is returned as it came. */
+export const shortDate = (iso: string) => {
+  const [, y, m, d] = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? []
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]
+  return y && month ? `${Number(d)} ${month} ${y}` : iso
+}
 export const shortHash = (hash: string) => `${hash.slice(0, 'sha256:'.length + 4)}…`
 
 /** The status line's model half. Only ever a time the server measured. */

@@ -65,8 +65,8 @@ export function CompareView({
           <div className="space-y-3">
             {passages.length === 0 && (
               <p className="rounded border border-dashed border-rule bg-sheet px-4 py-6 text-sm text-ink-soft">
-                No document in this packet supports registry record {check.capability_id}. The bank value comes from the
-                structured registry alone.
+                No document in this packet supports capability record {check.capability_id}. The bank value comes from the
+                bank's capability record alone.
               </p>
             )}
             {passages.map((p) => (
@@ -79,8 +79,8 @@ export function CompareView({
                   <span className={cn('inline-flex items-center gap-1', p.verified ? 'text-pass' : 'text-manual')}>
                     {p.verified ? <CircleCheck aria-hidden className="size-3.5" /> : <CircleHelp aria-hidden className="size-3.5" />}
                     {p.verified
-                      ? `Registry record ${p.record_id}: the highlighted words match its stored values.`
-                      : `Registry record ${p.record_id} cites this section, but its values were not all found in the text.`}
+                      ? `Capability record ${p.record_id}: the highlighted words match its stored values.`
+                      : `Capability record ${p.record_id} cites this section, but its values were not all found in the text.`}
                   </span>
                 }
               >

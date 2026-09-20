@@ -7,7 +7,7 @@
 
 import { sha256Hex } from '../domain/sha256'
 import { PacketFormatError, parseDocument } from './parse'
-import { SUPPORTED_FORMAT, readPacketFrom, requiredDocuments, samplePacketFiles, type PacketDocument, type PacketFile, type RequiredDocument } from './packet'
+import { readPacketFrom, requiredDocuments, samplePacketFiles, type PacketDocument, type PacketFile, type RequiredDocument } from './packet'
 
 /** 'sample' is the packet bundled with the app. It is never shown as something that was dropped. */
 export type IntakeSource = 'dropped' | 'sample'
@@ -52,7 +52,7 @@ const matches = (r: RequiredDocument, d: PacketDocument) =>
 function readEntry(f: IntakeFile): IntakeEntry {
   const rejected = (note: string): IntakeEntry => ({ file: f.file, size: f.size, source: f.source, status: 'rejected', sha256: null, doc: null, note })
   if (f.unreadable) return rejected(f.unreadable)
-  if (!/\.md$/i.test(f.file)) return rejected(`Not a .md file. The only format read is ${SUPPORTED_FORMAT}.`)
+  if (!/\.md$/i.test(f.file)) return rejected('Not a .md text file.')
   try {
     const doc: PacketDocument = { ...parseDocument(f.raw, f.file), file: f.file }
     return { file: f.file, size: f.size, source: f.source, status: 'unused', sha256: sha256Hex(f.raw), doc, note: null }
@@ -60,7 +60,7 @@ function readEntry(f: IntakeFile): IntakeEntry {
     if (!(err instanceof PacketFormatError)) throw err
     // parseDocument prefixes its message with the file name, which the tray already shows.
     const reason = err.message.startsWith(`${f.file}: `) ? err.message.slice(f.file.length + 2) : err.message
-    return rejected(`Not packet text format v1: ${reason}`)
+    return rejected(`Can't be read as a packet file: ${reason}`)
   }
 }
 
@@ -75,13 +75,13 @@ export function checkIntake(files: IntakeFile[], graphVersion: number): Intake {
   for (const e of entries) {
     if (!e.doc) continue
     if (required.some((r) => matches(r, e.doc!))) e.status = 'needed'
-    else e.note = `${e.doc.meta.document_id} ${versionLabel(e.doc.meta.version)} is not used by registry v${graphVersion}`
+    else e.note = `${e.doc.meta.document_id} ${versionLabel(e.doc.meta.version)} is not in force for capabilities v${graphVersion}`
   }
 
   const missing = required.filter((r) => !entries.some((e) => e.doc && matches(r, e.doc)))
-  const blockers = entries.filter((e) => e.status === 'rejected').map((e) => `${e.file} was rejected. Remove it, or replace it with a file that can be read.`)
+  const blockers = entries.filter((e) => e.status === 'rejected').map((e) => `${e.file} can't be read. Remove or replace it.`)
   if (missing.length > 0) {
-    blockers.push(`Still needed for registry v${graphVersion}: ${missing.map((r) => r.file).join(', ')}`)
+    blockers.push(`Still needed: ${missing.map((r) => r.file).join(', ')}`)
   }
   if (blockers.length === 0) {
     // The same read the run will do. Its refusals (wrong agreement draft, a section in scope

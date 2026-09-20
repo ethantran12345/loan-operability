@@ -8,8 +8,10 @@ const SETTLEMENT_WORD: Record<string, string> = { same_day: 'same-day ', t_plus_
 export function findingTitle(check: CheckResult, req: Requirement): string {
   const failed = check.verdict === 'FAIL'
   switch (check.field) {
-    case 'amount.value':
-      return `Unsupported ${SETTLEMENT_WORD[req.timing?.settlement ?? ''] ?? ''}amount`
+    case 'amount.value': {
+      const title = `${SETTLEMENT_WORD[req.timing?.settlement ?? ''] ?? ''}amount over the bank's limit`
+      return title.charAt(0).toUpperCase() + title.slice(1)
+    }
     case 'amount.increment':
       return 'Amount is not a permitted increment'
     case 'timing.notice_cutoff':
@@ -39,6 +41,16 @@ export function findingTitle(check: CheckResult, req: Requirement): string {
       return `${humanize(check.field)} ${failed ? 'not supported' : 'needs review'}`
   }
 }
+
+/** A changed term's name, in the words the finding titles use. */
+const FIELD_LABEL: Record<string, string> = {
+  'amount.value': 'Amount',
+  'timing.notice_cutoff': 'Notice cutoff',
+  booking_entity: 'Booking office',
+  notice_channel: 'Delivery channel',
+  required_fields: 'Notice contents',
+}
+export const fieldLabel = (field: string): string => FIELD_LABEL[field] ?? humanize(field)
 
 /** Checks whose "required" side is a demand of the bank's route, not words in the clause. */
 const ROUTE_SIDE = new Set(['approval', 'capability.outcome', 'evidence.freshness', 'manual_path.sla'])

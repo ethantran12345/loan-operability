@@ -73,8 +73,8 @@ export function DemoDrawer({
 
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
           {busy && <p role="status" className="text-sm text-ink-soft">{busy}</p>}
-          <Tool title="Bank registry version" caption={changelogEntry(capabilityGraphs[version]!).text}>
-            <div role="radiogroup" aria-label="Bank registry version" className="inline-flex rounded-md border border-rule bg-rule-soft p-0.5">
+          <Tool title="Bank capabilities version" caption={changelogEntry(capabilityGraphs[version]!).text}>
+            <div role="radiogroup" aria-label="Bank capabilities version" className="inline-flex rounded-md border border-rule bg-rule-soft p-0.5">
               {GRAPH_VERSIONS.map((v) => (
                 <button
                   key={v}
@@ -90,7 +90,7 @@ export function DemoDrawer({
             </div>
           </Tool>
 
-          <Tool title="Chat packet" caption="The same five documents and registry, for pasting into a chat model.">
+          <Tool title="Chat packet" caption="The same five documents and bank capabilities, for pasting into a chat model.">
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={onCopyPacket} className={ACTION}>Copy chat packet</button>
               <button type="button" onClick={onDownloadPacket} className={ACTION}>Download packet</button>

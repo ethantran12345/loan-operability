@@ -49,7 +49,7 @@ describe('document intake', () => {
     expect(intake.missing.map((r) => r.file)).toEqual(['pol-007-approvals.v4.md'])
     const v3 = intake.entries.find((e) => e.file === 'pol-007-approvals.v3.md')!
     expect(v3.status).toBe('unused')
-    expect(v3.note).toContain('not used by registry v8')
+    expect(v3.note).toContain('not in force for capabilities v8')
   })
 
   it('all six files are ready under either registry version', () => {

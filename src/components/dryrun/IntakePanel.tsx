@@ -3,7 +3,7 @@ import { AlertTriangle, Check, FileQuestion, FolderOpen, Upload, X } from 'lucid
 import { DocumentRow, versionLabel } from '@/components/workspace/DocumentTray'
 import { AgreementPane } from './AgreementPane'
 import type { Intake, IntakeEntry } from '@/documents/intake'
-import { SUPPORTED_FORMAT, UNSUPPORTED_FORMATS, type RequiredDocument } from '@/documents/packet'
+import { FORMAT_NOTE, type RequiredDocument } from '@/documents/packet'
 import { cn } from '@/lib/cn'
 import { filesFromDrop } from '@/lib/dropFiles'
 
@@ -92,23 +92,23 @@ export function IntakePanel({
       data-source={e.source}
       className={cn('flex items-start rounded-md border transition-colors', open && e.file === reading ? 'border-accent/50 bg-accent-soft' : 'border-transparent hover:bg-rule-soft')}
     >
-      <button type="button" data-control="read" aria-pressed={open !== null && e.file === reading} title={`Read ${e.file}`} onClick={() => onRead(e.file)} className="min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left">
+      <button type="button" data-control="read" aria-pressed={open !== null && e.file === reading} title={`Open ${e.file}`} onClick={() => onRead(e.file)} className="min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left">
       <DocumentRow kind={e.doc!.meta.kind} title={e.doc!.meta.title} identity={`${e.doc!.meta.document_id} · ${versionLabel(e.doc!.meta.version)}`} muted={e.status === 'unused'}>
         <span className="mt-0.5 block font-mono text-[0.68rem] break-all text-ink-soft">{e.file}</span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.7rem] text-ink-soft">
           {e.status === 'needed' ? (
             <span className="inline-flex items-center gap-1">
               <Check aria-hidden className="size-3 text-pass" />
-              Parsed · {e.doc!.pages} {e.doc!.pages === 1 ? 'page' : 'pages'} · {e.doc!.paragraph_count} paragraphs
+              Read · {e.doc!.pages} {e.doc!.pages === 1 ? 'page' : 'pages'} · {e.doc!.paragraph_count} paragraphs
             </span>
           ) : (
             <span className="rounded bg-manual-soft px-1 font-semibold text-manual">{e.note}</span>
           )}
           <span className="tabular-nums">{kilobytes(e.size)}</span>
           <span className="font-mono" title={`SHA-256 of the text of this file: ${e.sha256}`}>
-            sha256 {e.sha256!.slice(0, 12)}
+            {e.sha256!.slice(0, 12)}
           </span>
-          {e.source === 'sample' && <span className="rounded bg-accent-soft px-1 font-semibold text-accent">Sample · bundled</span>}
+          {e.source === 'sample' && <span className="rounded bg-accent-soft px-1 font-semibold text-accent">Sample</span>}
         </span>
       </DocumentRow>
       </button>
@@ -123,7 +123,7 @@ export function IntakePanel({
       <li key={r.file} data-intake="missing" className="rounded-md border border-dashed border-rule px-2.5 py-1.5">
         <DocumentRow kind={r.kind} title={r.title} identity={`${r.document_id} · ${versionLabel(r.version)}`} muted>
           <span className="mt-0.5 block text-[0.7rem] text-ink-soft">
-            <span className="font-semibold text-manual">Still needed</span> · in the sample packet this is <span className="font-mono text-[0.68rem]">{r.file}</span>
+            <span className="font-semibold text-manual">Still needed</span> · sample file: <span className="font-mono text-[0.68rem]">{r.file}</span>
           </span>
         </DocumentRow>
       </li>
@@ -151,7 +151,7 @@ export function IntakePanel({
           />
         </section>
       ) : (
-      <section aria-label="Hand over the deal packet" className="flex min-h-0 min-w-0 flex-col p-6">
+      <section aria-label="Add the deal packet" className="flex min-h-0 min-w-0 flex-col p-6">
         <div
           data-testid="drop-zone"
           data-dragging={dragging || undefined}
@@ -161,10 +161,9 @@ export function IntakePanel({
           )}
         >
           <Upload aria-hidden className={cn('size-9', dragging ? 'text-accent' : 'text-ink-faint')} />
-          <h1 className="mt-4 text-xl font-semibold tracking-tight">{dragging ? 'Let go to read these files' : 'Drop the deal packet here'}</h1>
+          <h1 className="mt-4 text-xl font-semibold tracking-tight">{dragging ? 'Drop to add these files' : 'Drop the deal packet here'}</h1>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-soft">
-            The draft credit agreement and the bank policies in force under registry v{intake.graph_version}. Files or a whole folder. Each file is read,
-            parsed and hashed as it lands, and the run uses the text of exactly those files.
+            The draft credit agreement and the bank's current policies. Files or a whole folder. The check uses only the files you add.
           </p>
           <div className="mt-5 flex items-center gap-3">
             <button type="button" data-control="choose-files" onClick={() => picker.current?.click()} className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-sheet px-3.5 py-1.5 text-sm font-semibold text-ink hover:bg-rule-soft">
@@ -185,13 +184,12 @@ export function IntakePanel({
             />
           </div>
           <p className="mt-5 max-w-md text-xs leading-relaxed text-ink-faint">
-            Format read: {SUPPORTED_FORMAT}. {UNSUPPORTED_FORMATS}
+            {FORMAT_NOTE}
           </p>
         </div>
         <div className="mt-4 flex shrink-0 items-center gap-3 rounded-lg border border-rule bg-sheet px-4 py-2.5">
           <p className="min-w-0 text-xs leading-relaxed text-ink-soft">
-            <span className="font-semibold text-ink">No deal files to hand?</span> The sample packet is the six synthetic files bundled with this app, also in{' '}
-            <span className="font-mono text-[0.68rem]">demo-packet/</span>. It is labelled as the sample wherever it is used.
+            <span className="font-semibold text-ink">Don't have files?</span> Load six synthetic sample files. They stay labelled as the sample.
           </p>
           <button type="button" data-control="sample" onClick={onSample} className="ml-auto shrink-0 rounded-md border border-accent/40 bg-accent-soft px-3.5 py-1.5 text-sm font-semibold text-accent hover:border-accent">
             Load the sample packet
@@ -200,21 +198,21 @@ export function IntakePanel({
       </section>
       )}
 
-      <aside aria-label="Files handed over" className="flex min-h-0 flex-col border-l border-rule bg-sheet">
+      <aside aria-label="Files added" className="flex min-h-0 flex-col border-l border-rule bg-sheet">
         <div className="flex shrink-0 items-center gap-2 border-b border-rule-soft px-4 py-2">
           <p data-testid="intake-source" className="text-xs font-semibold text-ink">
-            {intake.entries.length === 0 ? 'Nothing handed over yet' : sample ? 'Sample packet · bundled with this app, not dropped' : `${intake.entries.length} ${intake.entries.length === 1 ? 'file' : 'files'} handed over`}
+            {intake.entries.length === 0 ? 'No files yet' : sample ? 'Sample packet · bundled with the app' : `${intake.entries.length} ${intake.entries.length === 1 ? 'file' : 'files'} added`}
           </p>
           {intake.entries.length > 0 && (
             <button type="button" onClick={onClear} className="ml-auto text-xs text-ink-soft underline underline-offset-2 hover:text-ink">
-              Clear
+              Remove all
             </button>
           )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {rejected.length > 0 && (
             <>
-              <p className={cn(heading, 'text-fail')}>Rejected · not read</p>
+              <p className={cn(heading, 'text-fail')}>Can't be read</p>
               <ul className="mb-2 space-y-1">
                 {rejected.map((e) => (
                   <li key={e.file} data-intake="rejected" className="flex items-start rounded-md border border-fail-rule bg-fail-soft px-2.5 py-1.5">
@@ -235,11 +233,11 @@ export function IntakePanel({
           )}
           <p className={heading}>Agreement</p>
           <ul className="space-y-0.5">{intake.required.filter((r) => r.kind === 'agreement').map(needed)}</ul>
-          <p className={cn(heading, 'mt-2')}>Bank policies · registry v{intake.graph_version}</p>
+          <p className={cn(heading, 'mt-2')}>Bank policies · capabilities v{intake.graph_version}</p>
           <ul className="space-y-0.5">{intake.required.filter((r) => r.kind === 'policy').map(needed)}</ul>
           {unused.length > 0 && (
             <>
-              <p className={cn(heading, 'mt-2')}>Read, not part of this run</p>
+              <p className={cn(heading, 'mt-2')}>Not needed for this check</p>
               <ul className="space-y-0.5">{unused.map(row)}</ul>
             </>
           )}
@@ -248,10 +246,10 @@ export function IntakePanel({
           {blockers.length === 0 ? (
             <p className="flex items-center gap-1.5 font-semibold text-pass">
               <Check aria-hidden className="size-3.5" />
-              {sample ? 'The sample packet is read. Run dry run is enabled.' : 'Every file registry v' + intake.graph_version + ' needs is read. Run dry run is enabled.'}
+              {sample ? 'Sample packet ready. Press Run dry run.' : 'All files ready. Press Run dry run.'}
             </p>
           ) : intake.entries.length === 0 ? (
-            <p className="text-ink-soft">Run dry run stays disabled until the agreement and every policy above are handed over.</p>
+            <p className="text-ink-soft">Add the agreement and every policy listed above to run.</p>
           ) : (
             <ul className="space-y-1">
               {blockers.map((b) => (
