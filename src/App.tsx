@@ -14,7 +14,7 @@ export function App() {
           <Route index element={<Workspace />} />
           <Route path="review" element={<Review />} />
           <Route path="results" element={<Results />} />
-          {/* The earlier staged process view. Reached by URL only; the workspace replaces it. */}
+          {/* The staged process view: "Watch the run" in the nav. */}
           <Route path="run" element={<Run />} />
           <Route path="run/:clauseId" element={<Run />} />
           <Route path="*" element={<Navigate to="/" replace />} />

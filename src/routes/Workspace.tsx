@@ -128,7 +128,7 @@ export function Workspace() {
     const url = URL.createObjectURL(new Blob([chatPacket()], { type: 'text/plain' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `loan-operability-chat-packet.registry-v${version}.txt`
+    a.download = `dryrun-chat-packet.registry-v${version}.txt`
     a.click()
     URL.revokeObjectURL(url)
   }

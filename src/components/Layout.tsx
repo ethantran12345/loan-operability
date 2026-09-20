@@ -27,8 +27,8 @@ export function Layout() {
       <header className="shrink-0 border-b border-rule bg-sheet">
         <div className={cn('mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-3 py-1.5 sm:px-4', frame)}>
           <Link to="/" className="flex items-baseline gap-2.5">
-            <span className="text-[0.95rem] font-semibold tracking-tight">Loan Operability</span>
-            <span className="hidden text-xs text-ink-faint sm:inline">Pre-signing operations check</span>
+            <span className="text-[0.95rem] font-semibold tracking-tight">Dryrun</span>
+            <span className="hidden text-xs text-ink-faint sm:inline">Dry-run the loan before you sign.</span>
           </Link>
           <nav aria-label="Views" className="flex items-center gap-1">
             <NavLink to="/" end className={STEP}>
@@ -44,6 +44,9 @@ export function Layout() {
             ) : (
               <span className={cn(STEP, 'cursor-not-allowed opacity-50 hover:text-ink-soft')}>Technical results</span>
             )}
+            <NavLink to="/run/credit-agreement-2.03-a" className={STEP}>
+              Watch the run
+            </NavLink>
           </nav>
         </div>
       </header>

@@ -1,4 +1,4 @@
-# Loan Operability
+# Dryrun — dry-run the loan before you sign
 
 A pre-signing compatibility test for loan agreements.
 
@@ -32,7 +32,7 @@ institution's operations, and nothing here is legal or financial advice.
 | Review + Results routes | done |
 | Challenge mode (`/api/challenge`, grader, Results panel) | done |
 | Document workspace (`/`, `?v=7\|8`) | done: packet ingestion, citation verification, evidence compare, employee review, re-test |
-| Process view (`/run/:clauseId?v=7\|8`) | superseded by the workspace, still reachable by URL |
+| Process view (`/run/:clauseId?v=7\|8`) | done, "Watch the run" in the nav |
 
 ## The document workspace (`/`)
 
@@ -397,7 +397,7 @@ shares, and a burst of them was seen to stall the hosted queue for minutes.
 `/run/:clauseId?v=7|8` plays the whole pipeline for one clause as ten stages:
 clause, Nemotron extraction, validation and hash, path search, checks on the
 decisive path, verdict, repair, re-test, bank changes, replay record. It is built
-for a 16:9 screen recording. It is reached by URL and is not in the step nav.
+for a 16:9 screen recording. It is "Watch the run" in the nav.
 
 Every frame is engine output; the only thing added is pacing. `evaluate()` runs
 once, whole, and the page then reveals its real `candidate_paths` in their real

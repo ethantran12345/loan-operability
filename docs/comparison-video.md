@@ -1,6 +1,6 @@
 # Comparison video: recording guide
 
-Two windows side by side: a chat interface on the left, the Loan Operability
+Two windows side by side: a chat interface on the left, the Dryrun
 workspace on the right. Both get the same inputs and the same question:
 
 > Can this bank support the agreement? Identify conflicts and cite evidence.
