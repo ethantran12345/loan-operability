@@ -76,13 +76,14 @@ export interface ChallengeDeps {
 /**
  * Extraction's budget pattern, one budget per run with the retry inside it, at a
  * measured number. Reading the whole graph and listing paths is a ~1,500-token
- * reply, which the hosted endpoint took 31 to 39 s to produce in every call
- * measured; 25 s would never succeed. 55 s fits the function's 60 s limit.
+ * reply, which the hosted endpoint took 31 to 39 s to produce when its queue was
+ * short and more than 55 s when it was not; 25 s would never succeed. 110 s fits
+ * the function's 120 s limit.
  *
  * Duplicate calls are not launched. Concurrent calls on one key starve each other
  * here (39 s alone, 133 s beside a twin), so a hedge slows the call it is hedging.
  */
-export const CHALLENGE_BUDGET_MS = 55_000
+export const CHALLENGE_BUDGET_MS = 110_000
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
