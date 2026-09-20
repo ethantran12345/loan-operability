@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { gradeChallenge, type ModelAnswer } from '@/domain/challenge'
 import type { CapabilityGraph, ExtractedClause, RequirementResult } from '@/domain/types'
 import type { ChallengeResponse } from '@/lib/challenge'
-import { challengeFor, unavailableDetail } from '@/lib/challengeClient'
+import { CHALLENGE_PREWARM_ON, challengeFor, unavailableDetail } from '@/lib/challengeClient'
 
 type Served = Exclude<ChallengeResponse, { source: 'unavailable' }>
 
@@ -323,7 +323,9 @@ export function ChallengePanel({
 
   // Ask as soon as this clause is on Results, and again when the graph version
   // changes. Only this clause: each challenge is two model calls.
+  const asking = CHALLENGE_PREWARM_ON || revealed
   useEffect(() => {
+    if (!asking) return
     let current = true
     setResponse(null)
     setSecondPending(true)
@@ -341,7 +343,7 @@ export function ChallengePanel({
     return () => {
       current = false
     }
-  }, [clause.clause_id, graph.version, attempt])
+  }, [clause.clause_id, graph.version, attempt, asking])
 
   const served = response && response.source !== 'unavailable' ? response : null
 

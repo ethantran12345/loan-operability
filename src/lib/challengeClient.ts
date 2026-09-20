@@ -7,6 +7,13 @@ import { extractionFor } from '@/lib/extractClient'
 /** The kill switch: VITE_CHALLENGE_MODE=off removes the panel and its calls entirely. */
 export const CHALLENGE_MODE_ON = import.meta.env.VITE_CHALLENGE_MODE !== 'off'
 
+/**
+ * VITE_CHALLENGE_PREWARM=off asks the model only when "Run challenge" is pressed.
+ * Each challenge is two long calls on the key that extraction shares, so this is
+ * the gentler setting if the hosted queue is struggling on the day.
+ */
+export const CHALLENGE_PREWARM_ON = import.meta.env.VITE_CHALLENGE_PREWARM !== 'off'
+
 /** Longer than the server's own budget, so the server's reason wins when it has one. */
 const CLIENT_TIMEOUT_MS = 105_000
 

@@ -272,6 +272,9 @@ clause on screen is asked about, and again when the graph version changes.
 
 **Kill switch.** Build with `VITE_CHALLENGE_MODE=off` and the panel, and every
 call it would make, is gone. Nothing else on the page changes.
+`VITE_CHALLENGE_PREWARM=off` keeps the panel but asks the model only when "Run
+challenge" is pressed: each challenge is two long calls on the key extraction
+shares, and a burst of them was seen to stall the hosted queue for minutes.
 
 ## Repair proposals
 
