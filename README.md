@@ -79,6 +79,9 @@ institution's operations, and nothing here is legal or financial advice.
 
 ---
 
+<details>
+<summary><b>What Nemotron does, and what it does not</b> — what we send, what comes back, and why it never decides</summary>
+
 ## What Nemotron does, and what it does not
 
 The model is **NVIDIA Nemotron 3.5 Lightning 30B A3B**
@@ -114,6 +117,11 @@ that decides (`src/domain/evaluate.ts`) makes no model call. It also cannot
 change the clause it was asked to read: the clause text on screen is copied from
 the file, never from the model's reply.
 
+</details>
+
+<details>
+<summary><b>How the verdict is decided</b> — 32 routes, 14 checks each, and the rule that turns them into <code>PASS</code>, <code>MANUAL</code> or <code>FAIL</code></summary>
+
 ## How the verdict is decided
 
 The bank's limits live in a hand-written list [the capability registry,
@@ -146,6 +154,11 @@ If the clause leaves something out, the answer is `MANUAL`, never `PASS`, becaus
 we will not mark a promise deliverable on a guess. The agreement's overall
 result is its worst clause.
 
+</details>
+
+<details>
+<summary><b>How we tested the claim</b> — the same model, given the same inputs with no engine, graded by the engine</summary>
+
 ## How we tested the claim
 
 We gave the same clause and the same capability graph to the same model, with no
@@ -161,6 +174,11 @@ grader compares:
 
 The point is method, not intelligence. The model may well reach the right
 verdict, and when it does the scorecard says so.
+
+</details>
+
+<details>
+<summary><b>The three answers a finding can give</b> — redraft the clause, change the bank's state, or a person has to act, each shown on a real clause</summary>
 
 ## The three answers a finding can give
 
@@ -187,6 +205,11 @@ bank accepts an emailed notice only after loan operations authenticate it with a
 callback against the authorised-signatory list, within one business day. The finding names that step, its owner
 and its time allowance, and says: "Refer to loan operations before signing. No
 drafting change removes this step."
+
+</details>
+
+<details>
+<summary><b>What is real and what is synthetic</b> — what is invented, what runs for real in your session, and the one thing that is staged</summary>
 
 ## What is real and what is synthetic
 
@@ -218,6 +241,11 @@ drafting change removes this step."
 One thing is staged: the pace at which a card reveals its result. The checking
 is already finished by then, and the status line says "real output, paced for
 reading".
+
+</details>
+
+<details>
+<summary><b>Choices I made, and why</b> — five design decisions and the reason behind each</summary>
 
 ## Choices I made, and why
 
@@ -264,6 +292,8 @@ reading rescues it. If they disagree it is `MANUAL`, because the answer depends
 on the missing fact. §2.03(a) misses 09:30 London under every reading, so it is
 a `FAIL`, not an open question.
 
+</details>
+
 ## Running it locally
 
 ```
@@ -305,6 +335,9 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ---
+
+<details>
+<summary><b>Reference, for maintainers</b> — file layout, input format, model access and evaluator notes; only needed if you are changing the code</summary>
 
 # Reference, for maintainers
 
@@ -511,3 +544,5 @@ still in the repository: the bundle and the grader in `src/domain/challenge.ts`,
 the server route in `api/challenge.ts` (`/api/challenge`) with its runner in
 `src/lib/challenge.ts`, and their tests in `src/domain/__tests__/challenge.test.ts`
 and `src/lib/__tests__/challenge.test.ts`.
+
+</details>
