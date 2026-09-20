@@ -12,12 +12,18 @@ can actually do, and says `PASS`, `MANUAL` or `FAIL` before anyone signs.
 **The problem.** A bank negotiates a bespoke loan clause with a borrower: "up to
 EUR 40 million, same day, if you tell us by 11:00 A.M." Nobody knows until late
 whether the bank's own systems, cutoff times, booking entities and approvals can
-actually deliver what the clause promises. Finding out after signing, when the
-borrower asks for the money, is expensive.
+actually deliver what the clause promises. The facts needed to check it are
+spread across operations procedures and an approvals register that the people
+drafting the clause do not read. Finding out after signing, when the borrower
+asks for the money, is expensive.
 
 [![Dryrun flow: the analyst adds the draft agreement, Nemotron reads each clause, and the deterministic engine tests it against the bank's capability graph and returns a verdict with one of three answers](docs/flow-diagram.png)](docs/flow-diagram.png)
 
 *One clause, end to end: the model reads the clause, the graph decides whether the bank can do it.*
+
+> **Nemotron understands the language. Our system owns the institution's verified
+> operating state and deterministically proves whether a complete execution path
+> exists.**
 
 ## See it work in 60 seconds
 
@@ -25,9 +31,12 @@ borrower asks for the money, is expensive.
 2. Click **Load the sample agreement**, then **Run dry run**.
 3. Four cards come back, one per borrowing clause: `FAIL`, `MANUAL`, `PASS`,
    `FAIL`, each labelled `Live Nemotron` or `Cached`.
-4. Open §2.03(a) and press **Apply and re-test**: the redraft returns `PASS`.
-5. Open §2.03(c) and press **Change the bank's approved state to v8 and
-   re-check**: the same clause moves from `FAIL` to `MANUAL`.
+4. Open the first card, §2.03(a). It shows the agreement's 40,000,000 against the
+   bank's 25,000,000, with both passages. Press **Apply and re-test**: the
+   redrafted terms return `PASS`.
+5. Open the last card, §2.03(c), and press **Change the bank's approved state to
+   v8 and re-check**. The same clause moves from `FAIL` to `MANUAL`, because the
+   only thing that changed is an approval the bank renewed.
 
 ## What works, and what doesn't
 
@@ -39,58 +48,36 @@ and says what to do.
 
 **The real limits.**
 
-- Synthetic data only. The bank, the agreement and the policies are invented.
-- One input format: the `.md` packet layout. No PDF, no Word, no scans.
-- Four clauses in scope, named by hand. It does not find risky clauses for you.
-- Free-tier model access. It rate-limits, and the app then falls back to a
-  cached extraction, labelled `Cached` on the card.
-- No validation against real practitioner review. Nobody who does this work at
-  a bank has checked the bank model or the verdicts.
-
----
-
-## What this is
-
-Dryrun checks a draft loan agreement against what the bank can actually do,
-before anyone signs it. You give it the draft. It reads each borrowing clause,
-works out what that clause would oblige the bank to do, and tests that against a
-list of the bank's real limits and approvals. Each clause comes back as `PASS`,
-`MANUAL` (a person has to step in) or `FAIL`, with the words from the agreement
-and the words from the bank's own policy side by side, and an answer to "what do
-I do about this".
-
-> **Nemotron understands the language. Our system owns the institution's verified
-> operating state and deterministically proves whether a complete execution path
-> exists.**
+- **Synthetic data only.** The bank, the agreement and the policies are
+  invented.
+- **One file format.** It reads the `.md` packet layout only. No PDF, no Word,
+  no scans, no tables or footnotes. Anything else is refused with the reason,
+  not guessed at.
+- **It checks the clauses it is told to check.** The four borrowing clauses are
+  named by hand. The other 28 paragraphs are displayed but not checked. It does
+  not find the risky clauses for you.
+- **The bank's list is written by hand.** The app confirms each listed value
+  appears in the cited policy. It cannot notice a rule that is in a policy but
+  missing from the list.
+- **One sample bank, one kind of promise.** Everything shown is about drawing
+  money and giving notice. The interest and fee checks exist in code and tests
+  but no sample clause uses them.
+- **Free-tier model access.** It rate-limits, and the app then falls back to a
+  cached extraction, labelled `Cached` on the card. A cached extraction only
+  describes the sample's wording. For your own agreement, only a live call
+  describes your text.
+- **The re-test is not sign-off.** It lives in the browser, the agreement file
+  is unchanged, and the agreement's own result does not move when a re-test
+  passes.
+- **Nothing is saved.** No accounts, no database. The only lasting output is the
+  JSON file from **Export record**.
+- **No validation against real practitioner review.** Nobody who does this work
+  at a bank has checked the bank model or the verdicts.
 
 All bank data in this repository is synthetic. Nothing here describes any real
 institution's operations, and nothing here is legal or financial advice.
 
-## The problem
-
-A bank negotiates a one-off loan clause with a borrower: say, "up to EUR 40
-million, same day, if you tell us by 11:00 A.M." The lawyers agree the wording.
-Nobody checks until late whether the bank's own systems, cutoff times, offices
-and approvals can deliver that promise. If they cannot, the bank finds out after
-signing, when the borrower asks for the money.
-
-The facts needed to check it are spread across operations procedures and an
-approvals register that the people drafting the clause do not read. Dryrun puts
-the check at the drafting stage, one clause at a time.
-
-## Try it in 60 seconds
-
-1. Open https://loan-operability.vercel.app.
-2. Click **Load the sample agreement**, then **Run dry run**.
-3. Four cards appear, one for each borrowing clause, reading `FAIL`, `MANUAL`,
-   `PASS`, `FAIL`. Each card says whether its reading of the clause is
-   `Live Nemotron` or `Cached`.
-4. Open the first card, §2.03(a). It shows the agreement's 40,000,000 against the
-   bank's 25,000,000, with both passages. Press **Apply and re-test**: the
-   redrafted terms return `PASS`.
-5. Open the last card, §2.03(c), and press **Change the bank's approved state to
-   v8 and re-check**. The same clause moves from `FAIL` to `MANUAL`, because the
-   only thing that changed is an approval the bank renewed.
+---
 
 ## What Nemotron does, and what it does not
 
@@ -276,28 +263,6 @@ bank's offices. If all three miss the cutoff the clause fails, because no
 reading rescues it. If they disagree it is `MANUAL`, because the answer depends
 on the missing fact. §2.03(a) misses 09:30 London under every reading, so it is
 a `FAIL`, not an open question.
-
-## What it cannot do yet
-
-- **One file format.** It reads a specific plain-text layout only. No PDF, no
-  Word, no scans, no tables or footnotes. Anything else is refused with the
-  reason, not guessed at.
-- **It checks the clauses it is told to check.** The four borrowing clauses are
-  named by hand. The other 28 paragraphs are displayed but not checked. It does
-  not find the risky clauses for you.
-- **The bank's list is written by hand.** The app confirms each listed value
-  appears in the cited policy. It cannot notice a rule that is in a policy but
-  missing from the list.
-- **One sample bank, one kind of promise.** Everything shown is about drawing
-  money and giving notice. The interest and fee checks exist in code and tests
-  but no sample clause uses them.
-- **A cached extraction only describes the sample's wording.** For your own
-  agreement, only a live call describes your text.
-- **The re-test is not sign-off.** It lives in the browser, the agreement file
-  is unchanged, and the agreement's own result does not move when a re-test
-  passes.
-- **Nothing is saved.** No accounts, no database. The only lasting output is the
-  JSON file from **Export record**.
 
 ## Running it locally
 
