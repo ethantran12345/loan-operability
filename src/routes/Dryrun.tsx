@@ -43,6 +43,23 @@ const TICK_MS = 50
 /** A run this page load has already finished, so coming back from a demo view does not ask for it again. */
 let ranThisLoad = false
 
+/** An element's top in the page's layout, which a transform in progress does not move. */
+function layoutTop(el: HTMLElement): number {
+  let top = 0
+  for (let at: HTMLElement | null = el; at; at = at.offsetParent as HTMLElement | null) top += at.offsetTop
+  return top
+}
+
+/**
+ * A card to the top of the findings column, so the top of its panel, where the fix is, is on screen.
+ * By layout offsets, not the painted box: the column is still easing out of its fitted scale as a card opens.
+ */
+function cardToTop(clauseId: string) {
+  const card = document.querySelector<HTMLElement>(`[data-clause="${clauseId}"]`)
+  const column = card?.closest<HTMLElement>('[data-scroll="findings"]')
+  if (card && column) column.scrollTop = layoutTop(card) - layoutTop(column) - 8
+}
+
 function download(name: string, text: string, type: string) {
   const url = URL.createObjectURL(new Blob([text], { type }))
   const a = document.createElement('a')
@@ -84,7 +101,7 @@ export function Dryrun() {
   const [landed, setLanded] = useState<Record<string, Landed>>({})
   /** clause_id -> when "Try live again" asked, so that card's wait counts from its own request. */
   const [askedAgain, setAskedAgain] = useState<Record<string, number>>({})
-  /** clause_id -> when Apply fix was pressed. */
+  /** clause_id -> when Apply and re-test was pressed. */
   const [applied, setApplied] = useState<Record<string, number>>({})
   const [now, setNow] = useState(() => performance.now())
   const [jump, setJump] = useState<{ anchor: string; card: string | null; n: number } | null>(null)
@@ -189,7 +206,7 @@ export function Dryrun() {
   useEffect(() => {
     if (!jump) return
     document.getElementById(jump.anchor)?.scrollIntoView({ block: 'center' })
-    if (jump.card) document.querySelector(`[data-clause="${jump.card}"]`)?.scrollIntoView({ block: 'nearest' })
+    if (jump.card) cardToTop(jump.card)
   }, [jump])
 
   const reset = () => {
@@ -260,7 +277,7 @@ export function Dryrun() {
     if (focus?.clauseId !== clauseId || closing) setFocus(null)
     if (closing) return
     setProcedure(null)
-    goTo(packet.agreement.meta.document_id, review.clause.start, from === 'document' ? clauseId : null)
+    goTo(packet.agreement.meta.document_id, review.clause.start, clauseId)
   }
 
   const applyFix = (clauseId: string) => {
@@ -271,8 +288,8 @@ export function Dryrun() {
     setRetests((r) => ({ ...r, [clauseId]: retest }))
     setApplied((a) => ({ ...a, [clauseId]: performance.now() }))
     setNow(performance.now())
-    // Bring the card's pills into view: FAIL → PASS is the point of the re-test.
-    requestAnimationFrame(() => document.querySelector(`[data-clause="${clauseId}"]`)?.scrollIntoView({ block: 'start' }))
+    // Keep the card's pills in view: FAIL → PASS is the point of the re-test. An open card is already there, so nothing moves.
+    requestAnimationFrame(() => cardToTop(clauseId))
   }
 
   const switchVersion = (v: number) => {
@@ -578,11 +595,6 @@ export function Dryrun() {
                     onToggle={() => selectClause(id, 'card')}
                     onHover={(over) => setHoveredId((h) => (over ? id : h === id ? null : h))}
                     onApply={() => applyFix(id)}
-                    onOpenAgreement={(checkIndex) => {
-                      setFocus({ clauseId: id, checkIndex })
-                      setProcedure(null)
-                      goTo(packet.agreement.meta.document_id, c.clause.start, null)
-                    }}
                     onOpenProcedure={(checkIndex, passage) => {
                       setFocus({ clauseId: id, checkIndex })
                       setProcedure(passage)

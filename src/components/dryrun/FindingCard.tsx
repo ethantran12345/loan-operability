@@ -68,8 +68,9 @@ function Passage({ heading, source, text, offset, spans, tone, note, link, onOpe
   spans: Span[]
   tone: MarkTone
   note?: string
-  link: string
-  onOpen: () => void
+  /** A passage that can be opened in the reader. The agreement's is already there: hovering the card marks it. */
+  link?: string
+  onOpen?: () => void
 }) {
   const cut = text === null ? null : excerpt(text, offset, spans)
   return (
@@ -83,9 +84,11 @@ function Passage({ heading, source, text, offset, spans, tone, note, link, onOpe
         </p>
       )}
       {note && <p className="mt-1 text-[0.72rem] leading-snug text-ink-soft">{note}</p>}
-      <button type="button" onClick={onOpen} className="mt-1 text-[0.72rem] text-ink-soft underline underline-offset-2 hover:text-ink">
-        {link}
-      </button>
+      {link && (
+        <button type="button" onClick={onOpen} className="mt-1 text-[0.72rem] text-ink-soft underline underline-offset-2 hover:text-ink">
+          {link}
+        </button>
+      )}
     </div>
   )
 }
@@ -143,7 +146,7 @@ export interface CardPacing {
   t: number | null
   /** performance.now() when the extraction was asked for: the waiting counter runs from here. */
   askedAt: number
-  /** ms since Apply fix and re-test. null: no re-test on this card. */
+  /** ms since Apply and re-test. null: no re-test on this card. */
   repairT: number | null
   /** prefers-reduced-motion: everything lands at once. */
   still: boolean
@@ -244,7 +247,6 @@ interface FindingCardProps {
   /** The cursor or keyboard focus arrived on, or left, this card. */
   onHover: (over: boolean) => void
   onApply: () => void
-  onOpenAgreement: (checkIndex: number) => void
   onOpenProcedure: (checkIndex: number, passage: EvidencePassage) => void
   pacing: CardPacing
 }
@@ -266,7 +268,6 @@ function LandedCard({
   onToggle,
   onHover,
   onApply,
-  onOpenAgreement,
   onOpenProcedure,
   pacing,
   t,
@@ -285,6 +286,7 @@ function LandedCard({
   const conflicts = indexed.filter((x) => x.check.verdict === decision && decision !== 'PASS')
   const alsoOpen = indexed.filter((x) => x.check.verdict !== 'PASS' && x.check.verdict !== decision)
   const left = retest ? (decisivePath(retest)?.checks ?? []).filter((k) => k.verdict !== 'PASS') : []
+  const hasFix = plan !== null && plan.proposals.length > 0
 
   // The reveal. Everything below is finished work; `t` only decides how much of it is on screen yet.
   const { chips, marks, route, retry, line, repair } = cardPlan(review, retest, pacing.still)
@@ -344,8 +346,12 @@ function LandedCard({
           </span>
           <ChevronRight aria-hidden className={cn('size-4 shrink-0 text-ink-faint transition-transform', expanded && 'rotate-90', !ready && 'invisible')} />
         </span>
-        <span className="mt-1 block text-sm text-ink-soft">
-          {!stamped ? clause.headline : decision === 'PASS' || !lead ? OUTCOME_HEADLINE.PASS : findingTitle(lead, requirement)}
+        <span className="mt-1 flex items-baseline gap-2 text-sm text-ink-soft">
+          <span className="min-w-0">{!stamped ? clause.headline : decision === 'PASS' || !lead ? OUTCOME_HEADLINE.PASS : findingTitle(lead, requirement)}</span>
+          {/* The card is the button, so this is its label for a finding that has a fix: one click opens it on the redraft. */}
+          {ready && hasFix && !retest && !expanded && (
+            <span data-testid="review-fix" className="ml-auto shrink-0 text-xs whitespace-nowrap text-ink-soft underline underline-offset-2">Review fix</span>
+          )}
         </span>
         {retry !== null && (
           <span data-testid="guard-retry" title={retry || undefined} className="mt-1.5 block animate-rise-in truncate text-xs text-manual">
@@ -380,91 +386,95 @@ function LandedCard({
 
       {expanded && (
         <div className="space-y-5 border-t border-rule-soft px-5 pt-4 pb-5">
+          {/* What to do comes first. The button, then its outcome, sit in one slot at the top of the panel. */}
+          {hasFix ? (
+            <div data-testid="fix">
+              <div className="flex min-h-8 items-center gap-3">
+                <p className="shrink-0 text-xs font-semibold">
+                  {flipped ? 'Redraft tested' : `Proposed redraft · ${plan.proposals.length} ${plan.proposals.length === 1 ? 'change' : 'changes'}`}
+                </p>
+                {retest && !flipped ? (
+                  <p data-testid="retesting" className="ml-auto text-sm whitespace-nowrap text-ink-soft">Re-testing…</p>
+                ) : retest ? (
+                  <p data-testid="retest" className="ml-auto min-w-0 text-sm leading-snug text-pretty text-ink-soft">
+                    {retest.report.decision === 'PASS'
+                      ? 'With these changes the clause passes. The agreement file is unchanged.'
+                      : `Still ${retest.report.decision} after these changes: ${left.map((k) => fieldLabel(k.field).toLowerCase()).join(', ')}.`}
+                  </p>
+                ) : (
+                  <Button data-control="apply" className="ml-auto min-h-8 px-3" onClick={onApply}>Apply and re-test</Button>
+                )}
+              </div>
+              <WordingDiffs clauseText={clause.source_text} proposals={plan.proposals} />
+              {!retest && <p className="mt-2 text-xs text-ink-faint">Suggested drafting from the bank's verified limits. Not approval.</p>}
+            </div>
+          ) : (
+            decision !== 'PASS' && plan && <p data-testid="next-action" className="text-sm">{nextAction(result, plan)}</p>
+          )}
+
           {conflicts.length === 0 ? (
             <p className="text-sm text-ink-soft">All {checks.length} checks pass on one route. No action needed.</p>
           ) : (
-            <ol className="space-y-4">
-              {conflicts.map(({ check, index }) => {
-                const passages = evidenceForCheck(check, citations, graph)
-                const term = locateTerm(clause.source_text, clause.start, check.field)
-                return (
-                  <li key={index} data-pair className={cn('border-l-2 pl-3', EDGE[check.verdict])}>
-                    <p className="mb-1.5 text-sm font-semibold">{findingTitle(check, requirement)}</p>
-                    <Pair check={check} />
-                    <div className="mt-2.5 grid grid-cols-2 gap-x-4">
-                      <Passage
-                        heading="Agreement"
-                        source={`§${clause.source_span.section} · page ${clause.source_span.page}`}
-                        text={term ? clause.source_text : null}
-                        offset={clause.start}
-                        spans={term ? [term] : []}
-                        tone={TONE[check.verdict]}
-                        note={
-                          term
-                            ? undefined
-                            : requiredSide(check) === 'Agreement'
-                              ? 'The clause does not state this.'
-                              : "Set by the bank's route, not the clause's wording."
-                        }
-                        link="Open in agreement"
-                        onOpen={() => onOpenAgreement(index)}
-                      />
-                      <div className="min-w-0 space-y-2">
-                        {passages.length === 0 && (
-                          <p className="text-[0.72rem] leading-snug text-ink-soft">
-                            No procedure in the packet covers this. The value is from the bank's capability record.
-                          </p>
-                        )}
-                        {passages.map((p) => {
-                          const para = p.paragraphs.find((x) => p.highlights.some((h) => h.start >= x.start && h.end <= x.start + x.text.length)) ?? p.paragraphs[0]
-                          return (
-                            <Passage
-                              key={`${p.record_id}-${p.section.id}`}
-                              heading="Bank procedure"
-                              source={`${p.document_id} ${p.document_version} · §${p.section.id} ${p.section.title}`}
-                              text={para?.text ?? null}
-                              offset={para?.start ?? 0}
-                              spans={p.highlights}
-                              tone={TONE[check.verdict]}
-                              link="Open the procedure"
-                              onOpen={() => onOpenProcedure(index, p)}
-                            />
-                          )
-                        })}
+            <div>
+              <p className="mb-2 text-xs font-semibold">{decision === 'FAIL' ? 'Why it fails' : 'Why it needs a person'}</p>
+              <ol className="space-y-4">
+                {conflicts.map(({ check, index }) => {
+                  const passages = evidenceForCheck(check, citations, graph)
+                  const term = locateTerm(clause.source_text, clause.start, check.field)
+                  return (
+                    <li key={index} data-pair className={cn('border-l-2 pl-3', EDGE[check.verdict])}>
+                      <p className="mb-1.5 text-sm font-semibold">{findingTitle(check, requirement)}</p>
+                      <Pair check={check} />
+                      <div className="mt-2.5 grid grid-cols-2 gap-x-4">
+                        <Passage
+                          heading="Agreement"
+                          source={`§${clause.source_span.section} · page ${clause.source_span.page}`}
+                          text={term ? clause.source_text : null}
+                          offset={clause.start}
+                          spans={term ? [term] : []}
+                          tone={TONE[check.verdict]}
+                          note={
+                            term
+                              ? undefined
+                              : requiredSide(check) === 'Agreement'
+                                ? 'The clause does not state this.'
+                                : "Set by the bank's route, not the clause's wording."
+                          }
+                        />
+                        <div className="min-w-0 space-y-2">
+                          {passages.length === 0 && (
+                            <p className="text-[0.72rem] leading-snug text-ink-soft">
+                              No procedure in the packet covers this. The value is from the bank's capability record.
+                            </p>
+                          )}
+                          {passages.map((p) => {
+                            const para = p.paragraphs.find((x) => p.highlights.some((h) => h.start >= x.start && h.end <= x.start + x.text.length)) ?? p.paragraphs[0]
+                            return (
+                              <Passage
+                                key={`${p.record_id}-${p.section.id}`}
+                                heading="Bank procedure"
+                                source={`${p.document_id} ${p.document_version} · §${p.section.id} ${p.section.title}`}
+                                text={para?.text ?? null}
+                                offset={para?.start ?? 0}
+                                spans={p.highlights}
+                                tone={TONE[check.verdict]}
+                                link="Open the procedure"
+                                onOpen={() => onOpenProcedure(index, p)}
+                              />
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
           )}
           {alsoOpen.length > 0 && (
             <p className="text-sm text-ink-soft">
               Also needs a person: {alsoOpen.map((x) => findingTitle(x.check, requirement).toLowerCase()).join(', ')}.
             </p>
-          )}
-
-          {plan && plan.proposals.length > 0 ? (
-            <div>
-              <p className="text-xs font-semibold">{flipped ? 'Redraft tested' : 'Proposed redraft'}</p>
-              <WordingDiffs clauseText={clause.source_text} proposals={plan.proposals} />
-              {retest && !flipped ? (
-                <p data-testid="retesting" className="mt-3 text-sm text-ink-soft">Re-testing the changed terms…</p>
-              ) : retest ? (
-                <p data-testid="retest" className="mt-3 text-sm text-ink-soft">
-                  {retest.report.decision === 'PASS'
-                    ? 'With these changes the clause passes. The agreement file is unchanged.'
-                    : `Still ${retest.report.decision} after these changes: ${left.map((k) => fieldLabel(k.field).toLowerCase()).join(', ')}.`}
-                </p>
-              ) : (
-                <>
-                  <Button data-control="apply" className="mt-3 w-full" onClick={onApply}>Apply fix and re-test</Button>
-                  <p className="mt-1.5 text-xs text-ink-faint">Suggested drafting from the bank's verified limits. Not approval.</p>
-                </>
-              )}
-            </div>
-          ) : (
-            decision !== 'PASS' && plan && <p className="text-sm">{nextAction(result, plan)}</p>
           )}
 
           <div>
