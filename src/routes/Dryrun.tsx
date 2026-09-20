@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AgreementPane } from '@/components/dryrun/AgreementPane'
 import { DemoDrawer } from '@/components/dryrun/DemoDrawer'
 import { FindingCard } from '@/components/dryrun/FindingCard'
+import { FitColumn } from '@/components/dryrun/FitColumn'
 import { ACT_ONE, cardPlan, revealed, sweeping } from '@/components/dryrun/reveal'
 import { changelogEntry } from '@/components/results/GraphVersion'
 import { paragraphAnchor } from '@/components/workspace/DocumentViewer'
@@ -137,7 +138,14 @@ export function Dryrun() {
     const id = following.split('|')[0]
     if (!id) return
     const behavior = still ? 'auto' : 'smooth'
-    document.querySelector(`[data-clause="${id}"]`)?.scrollIntoView({ block: 'nearest', behavior })
+    // When the whole run is already on screen, chasing the latest card would only move the picture.
+    const column = document.querySelector('[data-scroll="findings"]')
+    const card = document.querySelector(`[data-clause="${id}"]`)
+    if (column && card) {
+      const frame = column.getBoundingClientRect()
+      const box = card.getBoundingClientRect()
+      if (box.bottom > frame.bottom + 1 || box.top < frame.top - 1) card.scrollIntoView({ block: 'nearest', behavior })
+    }
     // The sweep is on the clause itself, so the document shows that clause as its response lands.
     if (following.endsWith('|0')) document.querySelector(`[data-sweep="${id}"]`)?.parentElement?.scrollIntoView({ block: 'nearest', behavior })
   }, [following, still])
@@ -408,9 +416,11 @@ export function Dryrun() {
           />
         </section>
 
-        <aside aria-label="Findings" data-scroll="findings" className="min-h-0 overflow-y-auto border-l border-rule px-5 py-6">
-          {started ? (
-            <ul className="space-y-3">
+        <aside aria-label="Findings" className="grid min-h-0 border-l border-rule">
+          <FitColumn active={started && expandedId === null} resetKey={startedAt} scrollName="findings">
+            <div className="px-5 py-4">
+            {started ? (
+            <ul className="space-y-2">
               {cards.slice(0, found).map(({ review: c, id, askedAt, t, repairT }) => {
                 return (
                   <FindingCard
@@ -442,6 +452,8 @@ export function Dryrun() {
               Run a dry run to check this agreement against the bank's verified capabilities
             </p>
           )}
+            </div>
+          </FitColumn>
         </aside>
       </main>
 

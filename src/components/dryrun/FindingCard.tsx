@@ -119,7 +119,7 @@ function Chip({ chip, mark, change, still }: { chip: TermChip; mark: ChipMark | 
       data-mark={mark?.verdict}
       title={chip.note}
       className={cn(
-        'inline-flex max-w-full animate-rise-in flex-col rounded-md border px-2 py-1 text-xs leading-tight transition-colors duration-200',
+        'inline-flex max-w-full animate-rise-in flex-col rounded-md border px-2 py-0.5 text-xs leading-tight transition-colors duration-200',
         mark ? MARK_SURFACE[mark.verdict] : chip.missing ? 'border-manual-rule bg-manual-soft' : 'border-rule bg-paper/60',
       )}
     >
@@ -140,7 +140,7 @@ function Chip({ chip, mark, change, still }: { chip: TermChip; mark: ChipMark | 
         {Icon && mark && !mark.bank && <Icon key={mark.verdict} aria-label={mark.verdict} strokeWidth={3} className={cn('size-3 shrink-0 animate-verdict-in', MARK_TEXT[mark.verdict])} />}
       </span>
       {Icon && mark?.bank && (
-        <span className={cn('mt-0.5 flex animate-rise-in items-start gap-1 text-[0.7rem] text-pretty', MARK_TEXT[mark.verdict])}>
+        <span className={cn('flex animate-rise-in items-start gap-1 text-[0.7rem] text-pretty', MARK_TEXT[mark.verdict])}>
           <Icon aria-label={mark.verdict} strokeWidth={3} className="mt-px size-3 shrink-0" />
           {mark.bank}
         </span>
@@ -153,9 +153,9 @@ function Chip({ chip, mark, change, still }: { chip: TermChip; mark: ChipMark | 
 function RouteChip({ check }: { check: CheckResult }) {
   const Icon = MARK_ICON[check.verdict]
   return (
-    <span data-chip={check.field} data-mark={check.verdict} className={cn('inline-flex max-w-full animate-rise-in flex-col rounded-md border border-dashed px-2 py-1 text-xs leading-tight', MARK_SURFACE[check.verdict])}>
+    <span data-chip={check.field} data-mark={check.verdict} className={cn('inline-flex max-w-full animate-rise-in flex-col rounded-md border border-dashed px-2 py-0.5 text-xs leading-tight', MARK_SURFACE[check.verdict])}>
       <span className="font-semibold">Route needs {check.required}</span>
-      <span className={cn('mt-0.5 flex items-start gap-1 text-[0.7rem] text-pretty', MARK_TEXT[check.verdict])}>
+      <span className={cn('flex items-start gap-1 text-[0.7rem] text-pretty', MARK_TEXT[check.verdict])}>
         <Icon aria-label={check.verdict} strokeWidth={3} className="mt-px size-3 shrink-0" />
         {check.supported}
       </span>
@@ -174,7 +174,7 @@ function ReadingBar() {
 /** Before the model has answered: the section, the clause's own headline, and the real wait so far. */
 function WaitingCard({ review, askedAt }: { review: ClauseReview; askedAt: number }) {
   return (
-    <li data-clause={review.clause.clause_id} data-stage="reading" className="rounded-lg border border-rule bg-sheet p-4">
+    <li data-clause={review.clause.clause_id} data-stage="reading" className="rounded-lg border border-rule bg-sheet px-3.5 py-3">
       <span className="flex items-center gap-2">
         <ReadingBar />
         <span className="font-serif text-sm font-semibold">§{review.clause.source_span.section}</span>
@@ -182,7 +182,7 @@ function WaitingCard({ review, askedAt }: { review: ClauseReview; askedAt: numbe
           Nemotron reading · <Elapsed since={askedAt} />
         </span>
       </span>
-      <span className="mt-1.5 block text-sm text-ink-soft">{review.clause.headline}</span>
+      <span className="mt-1 block text-sm text-ink-soft">{review.clause.headline}</span>
     </li>
   )
 }
@@ -265,7 +265,7 @@ function LandedCard({
       data-stage={!stamped ? (counted === 0 ? 'terms' : marksShown === 0 ? 'routes' : 'marks') : repair && !flipped ? 'retesting' : 'checked'}
       className={cn('rounded-lg border bg-sheet', expanded ? 'border-ink-faint' : 'border-rule')}
     >
-      <button type="button" data-control="card" aria-expanded={expanded} disabled={!ready} onClick={onToggle} className="block w-full rounded-lg p-4 text-left disabled:cursor-default">
+      <button type="button" data-control="card" aria-expanded={expanded} disabled={!ready} onClick={onToggle} className="block w-full rounded-lg px-3.5 py-3 text-left disabled:cursor-default">
         <span className="flex items-center gap-2">
           {stamped ? (
             <VerdictPill decision={flipped ? retest!.report.decision : decision} from={flipped ? decision : undefined} arrive={!pacing.still} />
@@ -287,15 +287,15 @@ function LandedCard({
           </span>
           <ChevronRight aria-hidden className={cn('size-4 shrink-0 text-ink-faint transition-transform', expanded && 'rotate-90', !ready && 'invisible')} />
         </span>
-        <span className="mt-1.5 block text-sm text-ink-soft">
+        <span className="mt-1 block text-sm text-ink-soft">
           {!stamped ? clause.headline : decision === 'PASS' || !lead ? OUTCOME_HEADLINE.PASS : findingTitle(lead, requirement)}
         </span>
         {retry && (
-          <span data-testid="guard-retry" title={retry} className="mt-2 block animate-rise-in truncate text-xs text-manual">
+          <span data-testid="guard-retry" title={retry} className="mt-1.5 block animate-rise-in truncate text-xs text-manual">
             Rejected: {retry} · asked again
           </span>
         )}
-        <span className="mt-2.5 flex flex-wrap items-start gap-1.5">
+        <span className="mt-2 flex flex-wrap items-start gap-1">
           {chips.slice(0, chipsShown).map((chip, i) => {
             const original = marks[i] ?? null
             const again = repair?.marks[i] ?? null
@@ -306,15 +306,19 @@ function LandedCard({
           {shownRoute.map((check, i) => (
             <RouteChip key={`${check.field}-${i}`} check={check} />
           ))}
-        </span>
-        {chipsShown === chips.length && (
-          <span className="mt-2.5 flex items-center gap-2 text-[0.68rem] text-ink-faint">
-            <span aria-hidden className="relative block h-0.5 flex-1 overflow-hidden rounded-full bg-rule-soft">
-              <span className="absolute inset-y-0 left-0 origin-left animate-draw rounded-full bg-accent/70" style={{ width: `${requirement.confidence * 100}%` }} />
+          {chipsShown === chips.length && (
+            <span
+              data-testid="confidence"
+              title={`How sure the model was of the terms it read out of this clause`}
+              className="ml-auto flex items-center gap-1.5 self-center py-1 pl-1 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint tabular-nums"
+            >
+              <span aria-hidden className="relative block h-0.5 w-7 overflow-hidden rounded-full bg-rule-soft">
+                <span className="absolute inset-y-0 left-0 origin-left animate-draw rounded-full bg-accent/70" style={{ width: `${requirement.confidence * 100}%` }} />
+              </span>
+              model {Math.round(requirement.confidence * 100)}%
             </span>
-            Model confidence {Math.round(requirement.confidence * 100)}%
-          </span>
-        )}
+          )}
+        </span>
       </button>
 
       {expanded && (
