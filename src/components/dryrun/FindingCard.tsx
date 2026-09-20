@@ -378,7 +378,7 @@ function LandedCard({
               <span aria-hidden className="relative block h-0.5 w-7 overflow-hidden rounded-full bg-rule-soft">
                 <span className="absolute inset-y-0 left-0 origin-left animate-draw rounded-full bg-accent/70" style={{ width: `${requirement.confidence * 100}%` }} />
               </span>
-              confidence {Math.round(requirement.confidence * 100)}%
+              model {Math.round(requirement.confidence * 100)}%
             </span>
           )}
         </span>
