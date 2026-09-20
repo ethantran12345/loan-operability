@@ -1,0 +1,166 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#f1f4f8;--sheet:#fff;--ink:#0f172a;--soft:#475569;--faint:#64748b;--rule:#d8dee8;--rule2:#e9edf3;
+--accent:#2f4a73;--accent-soft:#e6ecf5;--mark:#fdf0b9;--mark-rule:#e9cf6a;
+--fail:#b42318;--fail-soft:#fdf0ee;--fail-rule:#f0c4be;--manual:#94540a;--manual-soft:#fcf5e4;--manual-rule:#ecd49b;--pass:#17694a;--pass-soft:#eaf5ef;--pass-rule:#b4dcc8}
+body{background:var(--paper);font-family:Carlito,"DejaVu Sans",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.page{width:1720px;padding:44px 48px 40px}
+/* header */
+.hdr{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:18px;border-bottom:2px solid var(--ink)}
+.brand{font-size:40px;font-weight:700;letter-spacing:-.6px;line-height:1}
+.tag{font-size:17px;color:var(--soft);margin-top:9px}
+.meta{text-align:right;font-size:12.5px;color:var(--faint);line-height:1.65}
+.meta b{color:var(--accent);font-weight:700}
+/* section label */
+.slab{font-size:11.5px;font-weight:700;letter-spacing:1.5px;color:var(--faint);text-transform:uppercase;margin:26px 0 10px}
+/* generic panel: FULL 4-side border, never a left accent bar */
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:10px}
+/* band A */
+.flow{display:flex;align-items:stretch;gap:0}
+.fbox{flex:1;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.fbox .t{font-size:16px;font-weight:700;line-height:1.25}
+.fbox .d{font-size:12.5px;color:var(--faint);margin-top:5px;line-height:1.4}
+.chev{display:flex;align-items:center;justify-content:center;width:44px;flex:none;color:#9aa8bd;font-size:22px;font-weight:700}
+/* split */
+.split{display:grid;grid-template-columns:1fr 66px 1fr;align-items:stretch}
+.pnl{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:18px 20px 16px;display:flex;flex-direction:column}
+.phd{display:flex;align-items:baseline;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--rule2)}
+.phd .a{font-size:18px;font-weight:700;letter-spacing:.4px}
+.phd .b{font-size:12.5px;color:var(--faint)}
+.pnl.lang .phd .a{color:var(--accent)}
+.pnl.det .phd .a{color:var(--pass)}
+.step{display:flex;gap:12px;padding:13px 0}
+.n{flex:none;width:23px;height:23px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.det .n{background:var(--pass-soft);color:var(--pass)}
+.st{font-size:15.5px;font-weight:700;line-height:1.3}
+.sd{font-size:12.8px;color:var(--soft);margin-top:4px;line-height:1.48}
+.sd code{font-family:"DejaVu Sans Mono",monospace;font-size:11.8px;background:var(--rule2);padding:1px 4px;border-radius:3px}
+.dv{height:1px;background:var(--rule2);margin-left:35px}
+.note{margin-top:14px;background:var(--accent-soft);border:1px solid #cddaec;border-radius:8px;padding:12px 14px;font-size:12.8px;color:var(--accent);line-height:1.5}
+.note b{font-weight:700}
+.pft{margin-top:auto;padding-top:12px;border-top:1px solid var(--rule2);font-size:12px;color:var(--faint);font-style:italic}
+/* boundary */
+.bnd{position:relative;display:flex;align-items:center;justify-content:center}
+.bnd:before{content:"";position:absolute;top:6px;bottom:6px;left:50%;width:0;border-left:2px dashed #b9c4d4}
+.badge{position:relative;width:42px;height:42px;border-radius:50%;background:var(--sheet);border:2px solid var(--accent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700}
+/* crossing strip */
+.cross{margin-top:12px;background:var(--mark);border:1px solid var(--mark-rule);border-radius:8px;padding:11px 18px;font-size:14px;text-align:center}
+.cross b{font-weight:700}
+.cross code{font-family:"DejaVu Sans Mono",monospace;font-size:13px}
+/* graph */
+.graph{margin-top:14px;padding:16px 20px;display:flex;align-items:center;gap:22px}
+.gup{flex:none;width:120px;text-align:center;color:var(--pass);font-size:12px;font-weight:700;line-height:1.3}
+.gup .ar{font-size:20px;display:block}
+.gt{font-size:17px;font-weight:700}
+.gs{font-size:12.5px;color:var(--faint);margin-top:4px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.chip{font-size:12px;background:var(--accent-soft);color:var(--accent);border:1px solid #cddaec;border-radius:20px;padding:3px 11px;font-weight:600}
+/* outputs */
+.outs{display:grid;grid-template-columns:1.02fr 1.18fr 1fr;gap:16px;align-items:stretch}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px}
+.ct{font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:var(--faint);text-transform:uppercase}
+.cb{font-size:12.8px;color:var(--soft);line-height:1.5;margin-top:9px}
+.verd{display:flex;gap:9px;margin-top:11px}
+.v{flex:1;text-align:center;border-radius:7px;padding:9px 0;font-size:15px;font-weight:700;letter-spacing:.5px}
+.v.p{background:var(--pass-soft);border:1px solid var(--pass-rule);color:var(--pass)}
+.v.m{background:var(--manual-soft);border:1px solid var(--manual-rule);color:var(--manual)}
+.v.f{background:var(--fail-soft);border:1px solid var(--fail-rule);color:var(--fail)}
+.loop{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border:1px solid #cddaec;border-radius:6px;padding:7px 11px}
+/* footer */
+.foot{margin-top:24px;padding-top:16px;border-top:2px solid var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:30px}
+.fmain{font-size:19px;font-weight:700;line-height:1.35}
+.fnote{font-size:11.5px;color:var(--faint);text-align:right;line-height:1.6;flex:none;max-width:400px}
+</style></head><body><div class="page">
+
+<div class="hdr">
+  <div>
+    <div class="brand">Dryrun</div>
+    <div class="tag">What happens between the clause and the verdict.</div>
+  </div>
+  <div class="meta">
+    Meridian Commercial Bank — <b>synthetic, fictional institution</b><br>
+    capability graph <b>v8</b> &nbsp;·&nbsp; evaluator <b>0.1.0</b><br>
+    Vite + React + TypeScript · Zod · Vitest · Vercel Functions · NVIDIA-hosted Nemotron
+  </div>
+</div>
+
+<div class="slab">What the analyst sees</div>
+<div class="flow">
+  <div class="fbox"><div class="t">Document packet</div><div class="d">Dropped by the analyst or the bundled sample. Identified by its own front matter, hashed on intake.</div></div>
+  <div class="chev">&#10132;</div>
+  <div class="fbox"><div class="t">Clause selected</div><div class="d">One clause out of the credit agreement, with its source span kept.</div></div>
+  <div class="chev">&#10132;</div>
+  <div class="fbox"><div class="t">Requirements review</div><div class="d">What that clause asks the institution to actually do, in typed form.</div></div>
+  <div class="chev">&#10132;</div>
+  <div class="fbox"><div class="t">Verdict and paths</div><div class="d">PASS, MANUAL or FAIL, with every candidate path shown.</div></div>
+  <div class="chev">&#10132;</div>
+  <div class="fbox"><div class="t">Repair and re-test</div><div class="d">Change the drafting, run it again. FAIL to PASS is the product.</div></div>
+</div>
+
+<div class="slab">What happens behind it</div>
+<div class="split">
+
+  <div class="pnl lang">
+    <div class="phd"><span class="a">LANGUAGE</span><span class="b">probabilistic · the only place a model runs</span></div>
+    <div class="step"><div class="n">1</div><div><div class="st">POST /api/extract</div><div class="sd">Vercel Function. The request shape is validated before anything else happens.</div></div></div>
+    <div class="dv"></div>
+    <div class="step"><div class="n">2</div><div><div class="st">Nemotron 3.5 Lightning, NVIDIA-hosted</div><div class="sd">Reads one clause and writes typed requirements. It does the language. It does not reach the decision.</div></div></div>
+    <div class="dv"></div>
+    <div class="step"><div class="n">3</div><div><div class="st">Schema gate</div><div class="sd">The reply has to parse against the domain schema. A rejected reply is sent back once, carrying the reason it was rejected.</div></div></div>
+    <div class="dv"></div>
+    <div class="step"><div class="n">4</div><div><div class="st">Labelled fixture fallback</div><div class="sd">Any model, network or auth failure resolves to a cached fixture that says it is a fixture. A fixture is never relabelled as live.</div></div></div>
+    <div class="note">What the model is never asked: <b>whether the bank can do it.</b> It is asked only what the clause requires. The question it cannot answer is the one we moved across the line.</div>
+    <div class="pft">Response headers report source, attempts, HTTP calls, upstream ms and the first rejection.</div>
+  </div>
+
+  <div class="bnd"><div class="badge">&#10132;</div></div>
+
+  <div class="pnl det">
+    <div class="phd"><span class="a">DECISION</span><span class="b">deterministic · no model runs here</span></div>
+    <div class="step"><div class="n">1</div><div><div class="st">Compile requirements</div><div class="sd">Atomic and typed, one operation each: <code>receive_notice</code>, <code>fund_draw</code>, <code>book_facility</code>, <code>calculate_interest</code>, <code>collect_fee</code>.</div></div></div>
+    <div class="dv"></div>
+    <div class="step"><div class="n">2</div><div><div class="st">Assemble the legs</div><div class="sd">Every operation names the legs it needs. <code>fund_draw</code> needs all three: notice intake, funding window and booking entity.</div></div></div>
+    <div class="dv"></div>
+    <div class="step"><div class="n">3</div><div><div class="st">Exhaustive path search</div><div class="sd">Every combination of legs is tried, not the first that looks right. A EUR funding window paired with a Toronto booking entity is not a path, it is two capabilities that cannot be used together.</div></div></div>
+    <div class="dv"></div>
+    <div class="step"><div class="n">4</div><div><div class="st">Verdict</div><div class="sd">Worst check decides a path. Best path decides the clause. Unknown never becomes PASS, because a path nothing could evaluate is not a proven path.</div></div></div>
+    <div class="pft">Same input, same output, every run. The whole search is covered by unit tests.</div>
+  </div>
+
+</div>
+
+<div class="cross">The only thing that crosses this line is one typed, schema-validated <code>ExtractedClause</code>. <b>Nothing to the right of it calls a model.</b></div>
+
+<div class="panel graph">
+  <div style="flex:1">
+    <div class="gt">Capability graph v8 — the institution's verified operating state</div>
+    <div class="gs">Not the document. The second asset: what this bank can actually execute, versioned so any verdict can be traced back to the operating procedure that produced it.</div>
+    <div class="chips"><span class="chip">15 capabilities</span><span class="chip">5 roles</span><span class="chip">3 lending offices</span><span class="chip">effective-dated</span><span class="chip">evidence freshness 180 days</span><span class="chip">sha256 hashed</span><span class="chip">synthetic data only</span></div>
+  </div>
+  <div class="gup"><span class="ar">&#9650;</span>feeds the<br>path search</div>
+</div>
+
+<div class="slab">What comes out</div>
+<div class="outs">
+  <div class="card">
+    <div class="ct">Verdict</div>
+    <div class="verd"><div class="v p">PASS</div><div class="v m">MANUAL</div><div class="v f">FAIL</div></div>
+    <div class="cb">Every verdict names the capability that failed and the graph version that produced it. An auditor can follow it back to the procedure.</div>
+  </div>
+  <div class="card">
+    <div class="ct">Repair proposal</div>
+    <div class="cb">The model may write the sentence. It may not invent the number. Every proposed value is a bound that already exists in the graph and carries its <code style="font-family:'DejaVu Sans Mono',monospace;font-size:11.8px">capability_id</code>. Where the only route is a human step, no proposal is offered and the reason is stated instead.</div>
+    <div class="loop">&#8631; re-test the repaired clause against the same graph</div>
+  </div>
+  <div class="card">
+    <div class="ct">Challenge mode &nbsp;/api/challenge</div>
+    <div class="cb">The same bundle goes to a general model. The engine grades its answer against the exhaustive search, the graph's real bounds and the clause's stated facts.<br><br>The claim is not that the model is wrong. It is that a direct answer is narrated rather than searched, and that difference is checkable. <b>Grading never calls a model.</b></div>
+  </div>
+</div>
+
+<div class="foot">
+  <div class="fmain">The model reads the language.<br>The graph decides whether the bank can do it.</div>
+  <div class="fnote">Every figure on this diagram is read off the running code: <code style="font-family:'DejaVu Sans Mono',monospace">src/domain/evaluate.ts</code>, <code style="font-family:'DejaVu Sans Mono',monospace">repair.ts</code>, <code style="font-family:'DejaVu Sans Mono',monospace">challenge.ts</code> and <code style="font-family:'DejaVu Sans Mono',monospace">fixtures/capability-graph.v8.json</code>. The institution is fictional and all capability data is synthetic.</div>
+</div>
+
+</div></body></html>
