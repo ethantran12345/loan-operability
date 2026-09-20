@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import { ArrowDown, ArrowLeft, ArrowRight, Check, RefreshCw, Wrench } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import { BenchmarkPanel } from '@/components/results/BenchmarkPanel'
+import { ChallengePanel } from '@/components/results/ChallengePanel'
 import { CandidatePaths, ChecksTable } from '@/components/results/CandidatePaths'
 import { Citation, Findings } from '@/components/results/Findings'
 import { GRAPH_VERSIONS, GraphVersionSelector } from '@/components/results/GraphVersion'
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { evaluate } from '@/domain/evaluate'
 import { TRANSACTION_TIME, agreement, capabilityGraph, capabilityGraphs } from '@/domain/fixtures'
 import { applyRepairs, proposeRepairs } from '@/domain/repair'
+import { CHALLENGE_MODE_ON } from '@/lib/challengeClient'
 import { cn } from '@/lib/cn'
 import { sourceDetail } from '@/lib/extractClient'
 import { humanize } from '@/lib/format'
@@ -197,6 +199,15 @@ export function Results() {
           </span>
         ))}
       </p>
+
+      {CHALLENGE_MODE_ON && plans[0] && (
+        <ChallengePanel
+          clause={clause}
+          result={plans[0].result}
+          graph={graph}
+          engineHash={report.replay.requirement_bundle_hash}
+        />
+      )}
 
       <Section n={2} title="Contract requires, bank supports">
         <div className="space-y-6">
