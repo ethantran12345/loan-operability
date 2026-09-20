@@ -32,7 +32,9 @@ Record at 1920x1080 (1280x720 also fits). Use https://loan-operability.vercel.ap
 1. **Ingestion and cited findings.** Load `/`. The strip runs Read documents,
    Extract terms, Check routes. Extraction is a real hosted Nemotron call and can
    take up to about 25 seconds; each clause is labelled Live Nemotron or Cached
-   fixture when it lands. Leave the label on screen either way. In the chat
+   fixture when it lands. A cached clause offers **Try live Nemotron again** under
+   Extracted terms; use it if you want a live label, and leave whatever label you
+   get on screen. In the chat
    window, paste the packet for registry v7 and send it.
 2. Click the tray documents to show what was read. Open §2.03(a) in the findings
    and click **Unsupported same-day amount**: the agreement's "EUR 40,000,000"

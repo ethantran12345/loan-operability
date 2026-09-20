@@ -6,7 +6,7 @@ import { mostSevere } from '@/domain/evaluate'
 import type { CheckResult, Decision } from '@/domain/types'
 import { supportedElsewhere } from '@/documents/locate'
 import { cn } from '@/lib/cn'
-import { sourceDetail } from '@/lib/extractClient'
+import { canRetryLive, sourceDetail } from '@/lib/extractClient'
 import { OUTCOME_HEADLINE, bankSide, findingTitle, nextAction, requiredSide } from '@/lib/findingText'
 import { humanize } from '@/lib/format'
 import { countDecisions, fieldRows, ms } from '@/lib/runFormat'
@@ -46,6 +46,7 @@ interface Props {
   onReview: (clauseId: string, patch: Partial<EmployeeReview>) => void
   onRetest: (clauseId: string) => void
   onReproduce: (clauseId: string) => void
+  onRetryLive: (clauseId: string) => void
   onOpenTechnical: (clauseId: string) => void
 }
 
@@ -210,6 +211,16 @@ function ClauseBody({
             {sourceDetail(extraction!)}
             {reused && ' Reused from an earlier request in this session.'}
           </p>
+          {canRetryLive(extraction!) && (
+            <button
+              type="button"
+              onClick={() => props.onRetryLive(id)}
+              className="mt-1 inline-flex items-center gap-1 text-[0.7rem] font-semibold text-accent hover:underline"
+            >
+              <RefreshCw aria-hidden className="size-3" />
+              Try live Nemotron again
+            </button>
+          )}
           <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
             {fieldRows(requirement).map((row) => (
               <div key={row.key} className="contents">

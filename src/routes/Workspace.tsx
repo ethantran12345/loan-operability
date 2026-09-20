@@ -280,6 +280,12 @@ export function Workspace() {
             onReview={patchReview}
             onRetest={retest}
             onReproduce={reproduce}
+            onRetryLive={(clauseId) => {
+              // New terms invalidate the employee's review of the old ones.
+              setReviews(({ [clauseId]: _stale, ...rest }) => rest)
+              if (focus?.clauseId === clauseId) setFocus(null)
+              run.retryLive(clauseId)
+            }}
             onOpenTechnical={openTechnical}
           />
         </aside>

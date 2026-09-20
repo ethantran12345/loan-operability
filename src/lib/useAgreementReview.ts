@@ -50,6 +50,8 @@ export interface ReviewRun {
   /** Registry version the extraction ran under; a later version switch reuses it. */
   extractedUnderVersion: number | null
   rerun: () => void
+  /** Ask the model again for one clause. The result is labelled by what actually served it. */
+  retryLive: (clauseId: string) => void
 }
 
 interface Settled {
@@ -136,6 +138,18 @@ export function useAgreementReview(version: number): ReviewRun {
 
   const rerun = useCallback(() => setRun((n) => n + 1), [])
 
+  const retryLive = useCallback(
+    (clauseId: string) => {
+      const clause = clauses?.find((c) => c.clause_id === clauseId)
+      if (!clause) return
+      setSettled(({ [clauseId]: _dropped, ...rest }) => rest)
+      void extractionFor(clause, true).then((extraction) =>
+        setSettled((s) => ({ ...s, [clauseId]: { extraction, reused: false } })),
+      )
+    },
+    [clauses],
+  )
+
   return {
     packet: read?.packet ?? null,
     citations: read?.citations ?? null,
@@ -144,5 +158,6 @@ export function useAgreementReview(version: number): ReviewRun {
     steps,
     extractedUnderVersion,
     rerun,
+    retryLive,
   }
 }
