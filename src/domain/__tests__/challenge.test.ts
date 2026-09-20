@@ -140,6 +140,35 @@ describe('reproducibility across runs', () => {
   })
 })
 
+describe('the referee does not misread the graph\'s own records', () => {
+  const graded = (value: string) =>
+    gradeChallenge([{ ...typicalAnswer, proposed_fix: [{ field: 'x', value }] }], clause, result, G, hash).fix
+
+  it('reads a capability id and an ISO date as references, not amounts', () => {
+    expect(graded('Renew cap-013 treasury authority from 2026-09-15').ungrounded).toHaveLength(0)
+  })
+
+  it('accepts a bare currency code as graph vocabulary', () => {
+    expect(graded('EUR').ungrounded).toHaveLength(0)
+    expect(graded('settle in USD via the portal').ungrounded).toHaveLength(0)
+  })
+
+  it('still rejects an invented amount next to a real id', () => {
+    const u = graded('Raise cap-010 to EUR 30,000,000').ungrounded
+    expect(u).toHaveLength(1)
+    expect(u[0]!.reason).toMatch(/30,000,000 is not a bound/)
+    expect(u[0]!.reason).not.toMatch(/\b10\b/)
+  })
+
+  it('rejects a record that does not exist', () => {
+    expect(graded('Use cap-099').ungrounded[0]!.reason).toMatch(/cap-099 is not a record/)
+  })
+
+  it('still flags a value with nothing checkable', () => {
+    expect(graded('Be more careful').ungrounded[0]!.reason).toMatch(/no verifiable value/)
+  })
+})
+
 describe('graph vocabulary', () => {
   it('holds every bound a grounded proposal may use', () => {
     const v = graphVocabulary(G)

@@ -145,6 +145,27 @@ A clause passes only if every mandatory requirement passes. The agreement result
 the most severe unresolved clause result. **Missing information returns `MANUAL`.
 An unknown never becomes a `PASS`** — including a path no comparator could evaluate.
 
+## Model access (decided 2026-09-20)
+
+Nemotron is reached through NVIDIA's hosted API and nothing else:
+
+- Endpoint `https://integrate.api.nvidia.com/v1/chat/completions`, model
+  `nvidia/nemotron-3.5-lightning-30b-a3b` (overridable with `NEMOTRON_MODEL`).
+- The key lives only in the gitignored `.env.local` and the `loan-operability`
+  Vercel project. It is never sent to the client, logged, committed, or
+  screenshotted.
+- Architecture stays `Vercel /api/extract -> hosted Nemotron -> Zod -> evaluator`.
+
+The fallback is labelled and never relabelled: a valid hosted response is
+**Live Nemotron**; a timeout, upstream error, missing key, or invalid output is
+**Cached fixture**, visibly. The free hosted tier is intermittent (a successful
+production extraction has taken ~7 s; others exceed the budget), which the
+labels and pre-warming absorb.
+
+Brev GPU credit exists and could self-host a Nemotron NIM as a reliability
+backup. It is not the default path and the app is not migrated to it unless
+hosted congestion becomes severe enough to justify the setup time.
+
 ## Two decisions that diverge from the written spec
 
 Both were made while building the evaluator, both are deliberate, and both change

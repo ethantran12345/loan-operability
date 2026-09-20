@@ -139,14 +139,20 @@ const ENTITY_ALIASES: Record<string, string> = {
   london: 'london', toronto: 'toronto',
 }
 
-function extractClaims(value: string) {
+const ID_RE = /\b(?:cap|apr)-\d+\b/g
+const ISO_DATE_RE = /\b\d{4}-\d{2}-\d{2}\b/g
+
+function extractClaims(value: string, vocabWords: Set<string>) {
   const text = value.toLowerCase()
+  // References to the graph's own records are claims about the graph, not numbers.
+  const ids = [...text.matchAll(ID_RE)].map((m) => m[0])
   const clockRe = /\b([01]?\d|2[0-3]):([0-5]\d)\b/g
   const clocks = [...text.matchAll(clockRe)].map((m) => `${m[1]!.padStart(2, '0')}:${m[2]}`)
-  // Clocks are graded as clocks; strip them so "09:30" is not also read as 9 and 30.
-  const withoutClocks = text.replace(clockRe, ' ')
+  // Strip ids, dates and clocks before reading numbers, so "cap-013", "2026-09-15"
+  // and "09:30" are never mistaken for amounts.
+  const stripped = text.replace(ID_RE, ' ').replace(ISO_DATE_RE, ' ').replace(clockRe, ' ')
   const numbers: number[] = []
-  for (const m of withoutClocks.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(million|mm|m|k|bn|billion)?\b/g)) {
+  for (const m of stripped.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(million|mm|m|k|bn|billion)?\b/g)) {
     const raw = Number(m[1]!.replace(/,/g, ''))
     if (!Number.isFinite(raw)) continue
     const mult = m[2]
@@ -155,19 +161,28 @@ function extractClaims(value: string) {
   }
   const entities: string[] = []
   for (const [alias, canonical] of Object.entries(ENTITY_ALIASES)) if (text.includes(alias)) entities.push(canonical)
-  return { numbers, clocks, entities: [...new Set(entities)] }
+  // Currency codes, channels and settlement bases are graph vocabulary too.
+  const words = [...vocabWords].filter((w) => new RegExp(`\\b${w.replace(/_/g, '[_ ]')}\\b`, 'i').test(text))
+  return { ids, numbers, clocks, entities: [...new Set(entities)], words }
 }
 
 function gradeFix(answer: ModelAnswer, graph: CapabilityGraph): FixGrade {
   const vocab = graphVocabulary(graph)
   const ungrounded: FixGrade['ungrounded'] = []
+  const knownIds = new Set([
+    ...graph.capabilities.map((c) => c.capability_id),
+    ...graph.approvals.map((a) => a.approval_id),
+  ])
   for (const p of answer.proposed_fix) {
-    const claims = extractClaims(p.value)
+    const claims = extractClaims(p.value, vocab.words)
+    const badIds = claims.ids.filter((id) => !knownIds.has(id))
     const badNumbers = claims.numbers.filter((n) => !vocab.numbers.has(n))
     const badClocks = claims.clocks.filter((c) => !vocab.clocks.has(c))
     const badEntities = claims.entities.filter((e) => !vocab.entities.has(e))
-    const nothing = claims.numbers.length + claims.clocks.length + claims.entities.length === 0
+    const nothing =
+      claims.ids.length + claims.numbers.length + claims.clocks.length + claims.entities.length + claims.words.length === 0
     const reasons: string[] = []
+    if (badIds.length) reasons.push(`${badIds.join(', ')} is not a record in the capability graph`)
     if (badNumbers.length) reasons.push(`${badNumbers.map((n) => n.toLocaleString('en-US')).join(', ')} is not a bound anywhere in the capability graph`)
     if (badClocks.length) reasons.push(`${badClocks.join(', ')} is not a cutoff anywhere in the capability graph`)
     if (badEntities.length) reasons.push(`${badEntities.join(', ')} is not an approved booking entity`)
