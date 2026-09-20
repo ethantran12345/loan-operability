@@ -884,8 +884,8 @@ function Retest({
   return (
     <div className="space-y-3">
       <p className="max-w-5xl text-base text-ink-soft">{intro}</p>
-      <PathSearch paths={result.candidate_paths} selectedId={result.selected_path_id} shown={p[`${k}.paths`] ?? 0} dense animate={animate} />
-      <CheckTicker checks={decisivePath(after)?.checks ?? []} shown={p[`${k}.checks`] ?? 0} dense />
+      <PathSearch paths={result.candidate_paths} selectedId={result.selected_path_id} shown={p[`${k}.paths`] ?? 0} dense animate={animate} presentation />
+      <CheckTicker checks={decisivePath(after)?.checks ?? []} shown={p[`${k}.checks`] ?? 0} dense presentation />
       <div className={cn('flex flex-col items-stretch gap-3', earlier ? 'md:flex-row-reverse' : 'md:flex-row')}>
         <Verdict
           decision={before.report.decision}
