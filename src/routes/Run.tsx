@@ -344,28 +344,10 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
     }
   }, [clause, version, graph, run])
 
-  // Bring the active stage under the control bar when it would not fit where it is.
+  // Keep completed content in place so the page never moves underneath the reader.
   useEffect(() => {
-    const el = stageRefs.current[view.stage]
-    if (!el) return
-    const frame = requestAnimationFrame(() => {
-      const rect = el.getBoundingClientRect()
-      if (rect.bottom > window.innerHeight - 56 || rect.top < 72) {
-        el.scrollIntoView({ behavior: speedRef.current === 'instant' ? 'auto' : 'smooth', block: 'start' })
-      }
-    })
-    return () => cancelAnimationFrame(frame)
+    if (view.stage > 0) setOpened(previous => new Set([...previous, view.stage]))
   }, [view.stage])
-
-  // On a short frame a re-test is taller than the screen: follow it down to its verdicts.
-  const verdictsLanded = (view.p['revised.verdict'] ?? 0) + (view.p['other.verdict'] ?? 0)
-  useEffect(() => {
-    const el = stageRefs.current[view.stage]
-    if (!el || verdictsLanded === 0) return
-    if (el.getBoundingClientRect().bottom > window.innerHeight - 56) {
-      el.scrollIntoView({ behavior: speedRef.current === 'instant' ? 'auto' : 'smooth', block: 'end' })
-    }
-  }, [verdictsLanded, view.stage])
 
   const restart = useCallback((fresh = false) => {
     freshRef.current = fresh
@@ -491,8 +473,14 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
             ))}
           </div>
         </div>
+        <Button variant="ghost" className="min-h-9 px-3" onClick={() => stageRefs.current[view.stage]?.scrollIntoView({ behavior: 'auto', block: 'start' })}>
+          Current step
+        </Button>
+        <Button variant="ghost" className="min-h-9 px-3" onClick={() => setOpened(new Set())}>
+          Collapse completed
+        </Button>
         <Button variant="secondary" className="ml-auto min-h-9 px-3" disabled={!extraction} onClick={openResults}>
-          Open full results
+          Full results
           <ArrowRight aria-hidden className="size-4" />
         </Button>
       </div>
@@ -502,10 +490,10 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           <div>
             <p className="text-xs font-semibold tracking-[0.16em] text-accent uppercase">Pre-signing operations check</p>
             <h1 className="mt-2 max-w-3xl font-serif text-3xl leading-tight font-semibold sm:text-4xl">
-              Can the bank deliver what this contract promises?
+              Agreement review
             </h1>
             <p className="mt-2 max-w-2xl text-base text-ink-soft">
-              Review the agreement, compare the bank’s capabilities, then review the proposed revision before testing it. This demonstration uses synthetic bank records.
+              §{clause.source_span.section} · {clause.headline}
             </p>
           </div>
           <div className={cn(
@@ -544,7 +532,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
 
       <div className="mt-4 space-y-1.5">
         {/* 1 */}
-        <Stage {...stage(1)} title="What the contract promises" summary={`§${clause.source_span.section} · ${clause.headline}`}>
+        <Stage {...stage(1)} title="Agreement" summary={`§${clause.source_span.section} · ${clause.headline}`}>
           <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">
             {agreement.document} · Section {clause.source_span.section} · page {clause.source_span.page}
           </p>
@@ -554,7 +542,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 2 */}
         <Stage
           {...stage(2)}
-          title="Turn legal language into operating facts"
+          title="Extract terms"
           summary={
             extraction &&
             `${live ? 'Live' : 'Cached fixture'} · ${extraction.clause.model ?? 'Nemotron'} · ${modelCallText(extraction)}${view.reused ? ' · reused this session' : ''} · ${extraction.clause.requirements.length} requirement${extraction.clause.requirements.length === 1 ? '' : 's'} · ${req?.ambiguities.length ?? 0} ambiguit${req?.ambiguities.length === 1 ? 'y' : 'ies'}`
@@ -631,7 +619,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 3 */}
         <Stage
           {...stage(3)}
-          title="Lock the inputs"
+          title="Validate"
           summary={view.hash && `${shortHash(view.hash)} · graph v${version} · evaluator ${EVALUATOR_VERSION}`}
         >
           <div className="space-y-2 text-lg">
@@ -655,7 +643,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 4 */}
         <Stage
           {...stage(4)}
-          title="Test every way the bank could execute"
+          title="Check routes"
           summary={
             main && mainResult && mainCounts &&
             `${mainResult.candidate_paths.length} paths · ${mainCounts.PASS} pass · ${mainCounts.MANUAL} manual · ${mainCounts.FAIL} fail · engine ${ms(main.ms)}`
@@ -664,14 +652,14 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           {mainResult ? (
             <PathSearch paths={mainResult.candidate_paths} selectedId={mainResult.selected_path_id} shown={p['main.paths'] ?? 0} animate={animate} presentation />
           ) : (
-            <p className="text-sm text-ink-soft">Every complete operating path through the capability graph is searched. None is skipped.</p>
+            <p className="text-sm text-ink-soft">Checking all complete routes.</p>
           )}
         </Stage>
 
         {/* 5 */}
         <Stage
           {...stage(5)}
-          title="Compare the agreement with bank capabilities"
+          title="Compare terms"
           summary={
             main &&
             `${mainChecks.length} checks · ${checkCounts.FAIL} fail · ${checkCounts.MANUAL} need a person · ${checkCounts.PASS} pass`
@@ -686,7 +674,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 6 */}
         <Stage
           {...stage(6)}
-          title="Operational result"
+          title="Result"
           summary={
             main && (
               <>
@@ -710,7 +698,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 7 */}
         <Stage
           {...stage(7)}
-          title="Change the contract to match reality"
+          title="Proposed changes"
           summary={
             view.skipped[7] ??
             (plan &&
@@ -724,15 +712,15 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           {plan && plan.proposals.length > 0 && (
             <div className="space-y-3">
               <p className="max-w-prose text-sm text-ink-soft">
-                Every value is a bound already in the capability graph and cites the capability it came from.
+                Proposed terms from bank capability records.
               </p>
               <RepairRows plan={plan} shown={p.repairs ?? 0} typeMs={typeMs} />
               {plan.narrative && (
                 <figure className={cn('rounded-lg border border-rule bg-sheet px-4 py-3', p.narrative ? 'animate-rise-in' : 'invisible')}>
                   <figcaption className="text-xs font-semibold tracking-wider text-ink-faint uppercase">
-                    Suggested drafting, generated from the changes above
+                    Proposed wording
                   </figcaption>
-                  <p className="mt-1.5 font-serif text-base leading-relaxed">{plan.narrative}</p>
+                  <p className="mt-1.5 font-serif text-base leading-relaxed">{plan.narrative.replaceAll('—', ';')}</p>
                 </figure>
               )}
               {(awaitingApproval || humanApproval) && (
@@ -745,11 +733,11 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
                       {humanApproval ? <Check aria-hidden className="size-5" /> : <UserCheck aria-hidden className="size-5" />}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold">{humanApproval ? 'Employee approved the revision' : 'Human decision required'}</h3>
+                      <h3 className="font-semibold">{humanApproval ? 'Employee approved the revision' : 'Review changes'}</h3>
                       <p className="mt-0.5 max-w-3xl text-sm text-ink-soft">
                         {humanApproval
                           ? `${humanApproval.role} authorized ${humanApproval.changes} proposed changes. The engine may now re-test them.`
-                          : 'The system can recommend operable language, but it cannot change a contract. An authorized employee must review the cited bank limits and release the re-test.'}
+                          : 'Review the changes before re-testing. Demo review only; no contract is amended.'}
                       </p>
                       {!humanApproval && (
                         <div className="mt-3 grid items-end gap-3 lg:grid-cols-[15rem_minmax(0,1fr)_auto]">
@@ -772,7 +760,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
                               onChange={(event) => setReviewConfirmed(event.target.checked)}
                               className="size-4 accent-[var(--color-accent)]"
                             />
-                            I reviewed the proposed terms and their capability evidence.
+                            I reviewed the terms and evidence.
                           </label>
                           <Button disabled={!reviewConfirmed} onClick={approveAndRetest}>
                             <UserCheck aria-hidden className="size-4" />
@@ -806,7 +794,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 8 */}
         <Stage
           {...stage(8)}
-          title="Test the revised promise"
+          title="Re-test"
           summary={
             view.skipped[8] ??
             (revised &&
@@ -831,7 +819,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 9 */}
         <Stage
           {...stage(9)}
-          title="What if the bank’s capabilities change?"
+          title="Bank update"
           summary={
             view.skipped[9] ??
             (main && other &&
@@ -869,21 +857,18 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 10 */}
         <Stage
           {...stage(10)}
-          title="Leave an audit trail"
+          title="Review record"
           summary={view.hash && `${allReproduced ? 'Reproducible' : 'Replay record'} · ${shortHash(view.hash)}`}
         >
           {humanApproval && (
             <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-pass-rule bg-pass-soft px-3 py-2 text-sm">
               <UserCheck aria-hidden className="size-4 text-pass" />
-              <strong>Human authorization recorded</strong>
+              <strong>Demo review recorded</strong>
               <span className="text-ink-soft">{humanApproval.role} · {humanApproval.changes} changes · {new Date(humanApproval.approvedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
             </div>
           )}
           <p className="mb-3 text-sm text-ink-soft">
-            These records prove which contract terms, bank rules and engine version produced each answer.{' '}
-            {view.hash && records.every((r) => r.key === 'revised' || r.e.report.replay.requirement_bundle_hash === view.hash) &&
-              'Both records use the locked input from this run.'}{' '}
-            Reproduce runs the same test again and compares every output.
+            Reproduce checks that the same inputs return the same result.
           </p>
           <div className={cn('grid gap-3', records.length > 1 && 'xl:grid-cols-2')}>
             {records.map(({ key, title, e }) => {
@@ -910,15 +895,14 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
       {/* Status line: the real times, always on screen. */}
       <p
         role="status"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-ink bg-ink px-4 py-2.5 text-center font-mono text-sm text-sheet sm:px-6"
+        className="sticky bottom-0 z-20 mt-4 rounded-md bg-ink px-3 py-2 text-center text-xs text-sheet"
       >
         {awaitingApproval && <><strong>Waiting for employee approval</strong> · </>}
-        Engine compute this run:{' '}
+        Engine:{' '}
         <strong className="tabular-nums">
           {view.evaluations === 0 ? 'not run yet' : `${ms(view.engineMs)} (${view.evaluations} evaluation${view.evaluations === 1 ? '' : 's'})`}
         </strong>{' '}
-        · Model call: <strong className="tabular-nums">{modelCallText(extraction)}</strong> · Paced for viewing — every value on
-        screen is real output.
+        · Nemotron: <strong className="tabular-nums">{modelCallText(extraction)}</strong> · Animated playback
       </p>
     </div>
   )

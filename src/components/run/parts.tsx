@@ -77,7 +77,7 @@ export const Stage = forwardRef<HTMLElement, StageProps>(function Stage(
         <h2
           id={`stage-${n}`}
           className={cn(
-            'shrink-0 font-serif font-semibold',
+            'min-w-0 font-sans font-semibold',
             status === 'active' ? 'text-2xl' : 'text-base',
             (status === 'pending' || status === 'skipped') && 'font-normal text-ink-faint',
           )}
@@ -149,7 +149,6 @@ export function FieldGrid({ rows, shown }: { rows: FieldRow[]; shown: number }) 
         >
           <dt className="flex items-center justify-between gap-2 text-xs text-ink-faint">
             {row.label}
-            <span className="font-mono text-[0.65rem]">{row.key}</span>
           </dt>
           <dd className={cn('mt-0.5 font-serif text-lg leading-snug', row.value === null && 'text-manual italic')}>
             {row.value ?? 'not stated'}
@@ -266,7 +265,7 @@ function DecisivePath({ path, visible }: { path: CandidatePath | undefined; visi
           </ol>
           <Badge tone="accent">
             <Flag aria-hidden className="size-3" />
-            Decision reported against this path
+            Selected route
           </Badge>
           <Badge tone={decisionTone(path.decision)}>{path.decision}</Badge>
         </>
@@ -398,7 +397,6 @@ export function CheckTicker({
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge tone="pass">{passed} supported</Badge>
           {blockers.length > 0 && <Badge tone="fail">{blockers.length} blocking</Badge>}
-          <span className="text-ink-soft">Only decision-changing checks are shown below.</span>
         </div>
         <ol className="grid gap-2 lg:grid-cols-2">
           {blockers.map((check, i) => {
@@ -495,7 +493,6 @@ export function RepairRows({ plan, shown, typeMs }: { plan: RepairPlan; shown: n
         >
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold">{humanize(p.field)}</span>
-            <Id>{p.field}</Id>
           </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-serif text-lg">
             <span className="relative text-fail">
