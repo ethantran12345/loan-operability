@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { LoaderCircle, Play, RefreshCw } from 'lucide-react'
+import { Check, Copy, LoaderCircle, Play, RefreshCw } from 'lucide-react'
 import { Badge, Id, decisionTone } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { gradeChallenge, type ModelAnswer } from '@/domain/challenge'
 import type { CapabilityGraph, ExtractedClause, RequirementResult } from '@/domain/types'
 import type { ChallengeResponse } from '@/lib/challenge'
-import { CHALLENGE_PREWARM_ON, challengeFor, unavailableDetail } from '@/lib/challengeClient'
+import { CHALLENGE_PREWARM_ON, bundleAsText, challengeFor, unavailableDetail } from '@/lib/challengeClient'
 
 type Served = Exclude<ChallengeResponse, { source: 'unavailable' }>
 
@@ -35,6 +35,33 @@ const Code = ({ children }: { children: string }) => (
     {children}
   </pre>
 )
+
+/** Copies the three files below as the one message the model was sent, for pasting into another chat box. */
+function CopyBundle({ bundle }: { bundle: Served['bundle'] }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(bundleAsText(bundle))
+      setState('copied')
+    } catch {
+      setState('failed')
+    }
+    setTimeout(() => setState('idle'), 2500)
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button variant="secondary" className="min-h-9 px-3" onClick={copy}>
+        {state === 'copied' ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+        {state === 'copied' ? 'Copied' : 'Copy bundle'}
+      </Button>
+      <span className="text-xs text-ink-soft" role="status">
+        {state === 'failed'
+          ? 'The browser refused clipboard access. Select the text below instead.'
+          : 'One pasteable text: instructions, CLAUSE, CAPABILITY_GRAPH. Exactly the message the model was sent.'}
+      </span>
+    </div>
+  )
+}
 
 /** The model's answer exactly as it gave it. Nothing here is edited or summarised. */
 function ModelColumn({ served }: { served: Served }) {
@@ -408,6 +435,7 @@ export function ChallengePanel({
             </div>
             <Disclosure summary="Files sent to the model">
               <div className="space-y-3 text-sm">
+                <CopyBundle bundle={served.bundle} />
                 <div>
                   <p className="mb-1 font-semibold">Instructions</p>
                   <Code>{served.bundle.instructions}</Code>

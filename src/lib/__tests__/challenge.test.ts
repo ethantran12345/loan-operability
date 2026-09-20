@@ -3,6 +3,7 @@ import { POST } from '../../../api/challenge'
 import { agreement, capabilityGraph, capabilityGraphV8 } from '@/domain/fixtures'
 import recordedJson from '@/fixtures/challenge-recorded.json'
 import { challengeMessage, runChallenge, type ChallengeRecording } from '../challenge'
+import { bundleAsText } from '../challengeClient'
 import { DEFAULT_MODEL, NVIDIA_CHAT_URL } from '../extract'
 
 const failClause = agreement.clauses[0]!
@@ -161,6 +162,18 @@ describe('runChallenge', () => {
     expect(live.response.source).toBe('live')
     const other = await runChallenge({ ...input, graph_version: 8 }, { ...deps(mockModel(() => completion('', 503))), recordings: [recording] })
     expect(other.response.source).toBe('unavailable')
+  })
+})
+
+describe('Copy bundle', () => {
+  it('copies character for character the message the model is sent, after the JSON round trip', async () => {
+    const fetch = mockModel(() => completion(reply('FAIL')))
+    const { response } = await runChallenge({ ...input, runs: 1 }, deps(fetch))
+    if (response.source !== 'live') throw new Error('expected a live response')
+
+    const overTheWire = JSON.parse(JSON.stringify(response.bundle))
+    expect(bundleAsText(overTheWire)).toBe(bodyOf(fetch, 0).messages[0]!.content)
+    expect(bundleAsText(overTheWire)).toBe(challengeMessage(response.bundle))
   })
 })
 

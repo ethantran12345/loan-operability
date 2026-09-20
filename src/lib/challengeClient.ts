@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ModelAnswerSchema } from '@/domain/challenge'
+import { ModelAnswerSchema, type ChallengeBundle } from '@/domain/challenge'
 import { agreement } from '@/domain/fixtures'
 import type { ChallengeResponse } from '@/lib/challenge'
 import { extractionFor } from '@/lib/extractClient'
@@ -13,6 +13,14 @@ export const CHALLENGE_MODE_ON = import.meta.env.VITE_CHALLENGE_MODE !== 'off'
  * the gentler setting if the hosted queue is struggling on the day.
  */
 export const CHALLENGE_PREWARM_ON = import.meta.env.VITE_CHALLENGE_PREWARM !== 'off'
+
+/**
+ * The files as one pasteable text: character for character the message
+ * /api/challenge sends the model (`challengeMessage`, pinned by a test), so a
+ * paste into any other chat box asks the same question with the same files.
+ */
+export const bundleAsText = (b: Pick<ChallengeBundle, 'instructions' | 'clause_text' | 'capability_graph'>) =>
+  `${b.instructions}\n\nCLAUSE:\n${b.clause_text}\n\nCAPABILITY_GRAPH:\n${JSON.stringify(b.capability_graph)}`
 
 /** Longer than the server's own budget, so the server's reason wins when it has one. */
 const CLIENT_TIMEOUT_MS = 105_000
