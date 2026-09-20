@@ -45,6 +45,11 @@
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+@keyframes document-scan {
+  from { top: 0; }
+  to { top: 100%; }
+}
+.document-scan { animation: document-scan 3s linear infinite; }
 @keyframes settle {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-pass) 45%, transparent); }
   100% { box-shadow: 0 0 0 18px transparent; }

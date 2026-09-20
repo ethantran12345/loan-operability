@@ -17,6 +17,7 @@ import { canRetryLive, extractionFor, sourceDetail, type Extraction } from '@/li
 import { DECISION_MEANING } from '@/lib/format'
 import { countDecisions, fieldRows, leafCount, modelCallText, ms, shortHash } from '@/lib/runFormat'
 import { useReviewSession } from '@/lib/session'
+import { DocumentReview, DocumentComparison } from '@/components/run/DocumentReview'
 
 const DEFAULT_CLAUSE = 'credit-agreement-2.03-a'
 const BASE_VERSION = capabilityGraph.version
@@ -439,7 +440,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         ? 'Block before signing'
         : main.report.decision === 'MANUAL'
           ? 'Operations review needed'
-          : 'Safe to operate'
+          : 'Supported by tested rules'
       : revised.report.decision === 'PASS'
         ? 'Operable after revision'
         : 'Still needs review'
@@ -504,7 +505,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
               Can the bank deliver what this contract promises?
             </h1>
             <p className="mt-2 max-w-2xl text-base text-ink-soft">
-              A deal team is ready to sign. This run tests Section {clause.source_span.section} against the bank’s real operating limits before the promise becomes binding.
+              Review the agreement, compare the bank’s capabilities, then review the proposed revision before testing it. This demonstration uses synthetic bank records.
             </p>
           </div>
           <div className={cn(
@@ -514,7 +515,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
             main?.report.decision === 'MANUAL' && (!revised || view.stage < 8) && 'border-manual-rule bg-manual-soft',
             ((main?.report.decision === 'PASS' && (!revised || view.stage < 8)) || (revised && view.stage >= 8 && revised.report.decision === 'PASS')) && 'border-pass-rule bg-pass-soft',
           )}>
-            <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">Signing decision</p>
+            <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">Operational review</p>
             <p className={cn(
               'mt-1 font-serif text-2xl font-semibold',
               main?.report.decision === 'FAIL' && (!revised || view.stage < 8) && 'text-fail',
@@ -547,9 +548,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">
             {agreement.document} · Section {clause.source_span.section} · page {clause.source_span.page}
           </p>
-          <blockquote className="mt-2 max-w-5xl border-l-2 border-accent pl-4 font-serif text-xl leading-relaxed">
-            <mark className="bg-mark box-decoration-clone px-0.5">{clause.source_text}</mark>
-          </blockquote>
+          <div className="mt-3"><DocumentReview clause={clause} /></div>
         </Stage>
 
         {/* 2 */}
@@ -562,14 +561,14 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           }
         >
           {!extraction ? (
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg">
+            <div className="space-y-3"><DocumentReview clause={clause} scanning /><p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <Loader2 aria-hidden className="size-5 animate-spin text-accent" />
               <span>
                 Asking Nemotron to extract Section {clause.source_span.section}{' '}
-                <span className="text-ink-soft">· attempt 1, with one retry if a guard rejects the reply ·</span>
+                <span className="text-ink-soft">· validating the reply before continuing ·</span>
               </span>
               {view.extractStartedAt !== null && <Elapsed since={view.extractStartedAt} />}
-            </p>
+            </p></div>
           ) : (
             <div className="space-y-3">
               <p className="flex flex-wrap items-center gap-2 text-sm">
@@ -672,7 +671,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 5 */}
         <Stage
           {...stage(5)}
-          title="Show why the best available route fails"
+          title="Compare the agreement with bank capabilities"
           summary={
             main &&
             `${mainChecks.length} checks · ${checkCounts.FAIL} fail · ${checkCounts.MANUAL} need a person · ${checkCounts.PASS} pass`
@@ -681,13 +680,13 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           <p className="mb-2 text-sm text-ink-soft">
             Every comparator on <Id>{mainResult?.selected_path_id ?? 'none'}</Id>, the path the decision is reported against.
           </p>
-          <CheckTicker checks={mainChecks} shown={p['main.checks'] ?? 0} presentation />
+          <DocumentComparison clause={clause} graph={graph} checks={mainChecks.slice(0, p['main.checks'] ?? 0)} />
         </Stage>
 
         {/* 6 */}
         <Stage
           {...stage(6)}
-          title="Stop an unsupported promise before signing"
+          title="Operational result"
           summary={
             main && (
               <>

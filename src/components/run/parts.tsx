@@ -550,7 +550,7 @@ export function RecordPanel({
         </div>
       </div>
       <details className="border-t border-rule">
-        <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-ink-soft hover:text-ink">Inspect signed replay data</summary>
+        <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-ink-soft hover:text-ink">Inspect replay data</summary>
         <pre className="overflow-hidden bg-ink p-3 font-mono text-[0.7rem] leading-relaxed break-all whitespace-pre-wrap text-sheet">
           {lines.map((line, i) => (
             <Fragment key={i}>
