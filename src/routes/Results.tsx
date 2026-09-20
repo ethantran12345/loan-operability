@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, Check, RefreshCw, Wrench } from 'lucide-react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { BenchmarkPanel } from '@/components/results/BenchmarkPanel'
 import { ChallengePanel } from '@/components/results/ChallengePanel'
 import { CandidatePaths, ChecksTable } from '@/components/results/CandidatePaths'
@@ -42,6 +42,12 @@ export function Results() {
   const verdictsRef = useRef<HTMLDivElement>(null)
 
   const clause = submission?.clause ?? null
+
+  // "Check the model's work" in the Demo drawer links straight to that panel.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [hash])
 
   // Bring both verdicts into view for the transition, on any screen size.
   useEffect(() => {

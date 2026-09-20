@@ -285,12 +285,15 @@ export function PathSearch({
   dense = false,
   animate = true,
   presentation = false,
+  narrow = false,
 }: {
   paths: CandidatePath[]
   selectedId: string | null
   shown: number
   dense?: boolean
   animate?: boolean
+  /** One route per row, for a column too narrow for the grid (a finding card). */
+  narrow?: boolean
   /** Lead with the business answer; keep the full route matrix one click away. */
   presentation?: boolean
 }) {
@@ -357,7 +360,7 @@ export function PathSearch({
         <span className="text-manual">manual {counts.MANUAL}</span> · <span className="text-fail">fail {counts.FAIL}</span>
       </p>
       <DecisivePath path={paths[decisiveIndex]} visible={decisiveIndex >= 0 && shown > decisiveIndex} />
-      <ol className={cn('grid gap-1.5', dense ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2 lg:grid-cols-3')}>
+      <ol className={cn('grid gap-1.5', narrow ? 'grid-cols-1' : dense ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2 lg:grid-cols-3')}>
         {paths.map((p, i) => (
           <PathCell key={p.path_id} path={p} visible={i < shown} decisive={i === decisiveIndex} animate={animate} />
         ))}

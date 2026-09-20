@@ -63,8 +63,10 @@ interface Settled {
  * The document review, as real operations in order: read and verify the packet,
  * extract the clauses in scope, evaluate each against the registry. Each step's
  * state is derived from the work itself; nothing is paced or simulated.
+ * With `enabled` false the packet is read (so the agreement can be shown) but
+ * no clause is extracted until the caller turns it on.
  */
-export function useAgreementReview(version: number): ReviewRun {
+export function useAgreementReview(version: number, enabled = true): ReviewRun {
   const [run, setRun] = useState(0)
   const [read, setRead] = useState<{ packet: Packet; citations: CitationIndex } | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
@@ -89,7 +91,7 @@ export function useAgreementReview(version: number): ReviewRun {
   const clauses = read?.packet.clauses
   const clauseKey = clauses?.map((c) => `${c.clause_id}:${c.source_text.length}`).join('|') ?? ''
   useEffect(() => {
-    if (!clauses) return
+    if (!clauses || !enabled) return
     let current = true
     setSettled({})
     setExtractedUnderVersion(version)
@@ -106,7 +108,7 @@ export function useAgreementReview(version: number): ReviewRun {
       current = false
     }
     // Deliberately not keyed on `version`: a registry change must not re-extract.
-  }, [clauseKey, run])
+  }, [clauseKey, run, enabled])
 
   // 3. Check routes: pure evaluation of whatever has been extracted so far.
   const reviews = useMemo<ClauseReview[]>(() => {

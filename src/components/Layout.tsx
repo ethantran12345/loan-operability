@@ -11,7 +11,7 @@ export function Layout() {
   const { submission } = useReviewSession()
   // The workspace is an application shell: full width, fixed height, panes that
   // scroll on their own. Every other route is an ordinary scrolling page.
-  const onWorkspace = useMatch('/') !== null
+  const onWorkspace = useMatch('/workspace') !== null
   const onRun = useMatch('/run/*') !== null
   const frame = onWorkspace ? 'max-w-none' : onRun ? 'max-w-[1400px]' : 'max-w-7xl'
 
@@ -31,7 +31,7 @@ export function Layout() {
             <span className="hidden text-xs text-ink-faint sm:inline">Dry-run the loan before you sign.</span>
           </Link>
           <nav aria-label="Views" className="flex items-center gap-1">
-            <NavLink to="/" end className={STEP}>
+            <NavLink to="/workspace" className={STEP}>
               Document workspace
             </NavLink>
             <NavLink to="/review" className={STEP}>
@@ -51,7 +51,7 @@ export function Layout() {
         </div>
       </header>
 
-      {/* Synthetic-data disclaimer. Lives in the layout so no route can drop it. */}
+      {/* Synthetic-data disclaimer. Lives in the layout so no route under it can drop it; `/` carries its own in its footer. */}
       <aside aria-label="Synthetic data notice" className="shrink-0 border-b border-manual-rule bg-manual-soft text-manual">
         <div className={cn('mx-auto flex items-center gap-2 px-3 py-1 text-xs sm:px-4', frame)}>
           <FlaskConical aria-hidden className="size-3.5 shrink-0" />
