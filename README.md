@@ -14,6 +14,10 @@ list of the bank's real limits and approvals. Each clause comes back as `PASS`,
 and the words from the bank's own policy side by side, and an answer to "what do
 I do about this".
 
+> **Nemotron understands the language. Our system owns the institution's verified
+> operating state and deterministically proves whether a complete execution path
+> exists.**
+
 All bank data in this repository is synthetic. Nothing here describes any real
 institution's operations, and nothing here is legal or financial advice.
 
@@ -29,7 +33,7 @@ The facts needed to check it are spread across operations procedures and an
 approvals register that the people drafting the clause do not read. Dryrun puts
 the check at the drafting stage, one clause at a time.
 
-![Dryrun flow: the analyst adds the draft agreement, Nemotron reads each clause, and the deterministic engine tests it against the bank's capability graph and returns a verdict with one of three answers](docs/flow-diagram.png)
+[![Dryrun flow: the analyst adds the draft agreement, Nemotron reads each clause, and the deterministic engine tests it against the bank's capability graph and returns a verdict with one of three answers](docs/flow-diagram.png)](docs/flow-diagram.png)
 
 *One clause, end to end: the model reads the clause, the graph decides whether the bank can do it.*
 
