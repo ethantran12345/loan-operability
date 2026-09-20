@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { sha256Hex } from '../../domain/sha256'
 import { checkIntake, sampleIntakeFiles, type IntakeFile } from '../intake'
@@ -129,5 +130,11 @@ describe('document intake', () => {
     const b = readPacket(7)
     expect(a.documents.map((d) => d.sha256)).toEqual(b.documents.map((d) => d.sha256))
     expect(a.clauses).toEqual(b.clauses)
+  })
+
+  it('demo-packet/ is the sample packet, byte for byte, so a drag from it and the sample agree', () => {
+    const folder = new URL('../../../demo-packet/', import.meta.url)
+    expect(readdirSync(folder).filter((n) => n.endsWith('.md')).sort()).toEqual(samplePacketFiles().map((f) => f.file).sort())
+    for (const f of samplePacketFiles()) expect(readFileSync(new URL(f.file, folder), 'utf8')).toBe(f.raw)
   })
 })
