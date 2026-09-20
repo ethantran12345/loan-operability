@@ -8,7 +8,8 @@
  * served travels in the `x-extraction-fallback` header, so the UI can be honest
  * about it without widening the domain type. `x-extraction-attempts`,
  * `x-extraction-calls` and `x-extraction-ms` say how many rounds and HTTP calls
- * were made and how long they took.
+ * were made and how long they took. When a reply was rejected and the model was
+ * asked again, `x-extraction-rejection` carries the first rejection's reason.
  *
  * This never 500s into the demo: every model, network or auth failure resolves
  * to the cached fixture with `extraction_source: 'fixture'`.
@@ -56,7 +57,10 @@ export async function POST(request: Request): Promise<Response> {
     }
     if (outcome.fallback_reason) console.warn(JSON.stringify(log))
     else console.log(JSON.stringify(log))
+    // Header-safe: one printable ASCII line, bounded.
+    const rejection = outcome.rejections[0]?.replace(/[^\x20-\x7E]+/g, ' ').trim().slice(0, 300)
     return json(outcome.clause, 200, {
+      ...(rejection ? { 'x-extraction-rejection': rejection } : {}),
       'x-extraction-source': outcome.clause.extraction_source,
       'x-extraction-fallback': outcome.fallback_reason ?? 'none',
       'x-extraction-attempts': String(outcome.attempts),

@@ -15,9 +15,22 @@ export type FallbackReason =
   | 'api_unreachable'
   | `http_${number}`
 
+/** What /api/extract reported about its own call, from the `x-extraction-*` headers. */
+export interface ExtractionDiagnostics {
+  /** Rounds with the model: 1, or 2 when a reply was rejected and asked again. */
+  attempts: number
+  calls: number
+  /** Wall-clock time the server spent waiting on the model. */
+  upstream_ms: number
+  /** Why the first rejected reply was rejected, when one was. */
+  rejection: string | null
+}
+
 export interface Extraction {
   clause: ExtractedClause
   fallback_reason: FallbackReason | null
+  /** Absent when /api/extract never answered and the bundled fixture is shown. */
+  diagnostics?: ExtractionDiagnostics
 }
 
 const localFixture = (clauseId: string): Extraction => ({
@@ -82,7 +95,14 @@ export async function requestExtraction(
       parsed.data.extraction_source === 'nemotron'
         ? null
         : ((header && header !== 'none' ? header : 'invalid_output') as FallbackReason)
-    return { clause: parsed.data, fallback_reason }
+    const count = (name: string) => Number(res.headers.get(name) ?? 0) || 0
+    const diagnostics: ExtractionDiagnostics = {
+      attempts: count('x-extraction-attempts'),
+      calls: count('x-extraction-calls'),
+      upstream_ms: count('x-extraction-ms'),
+      rejection: res.headers.get('x-extraction-rejection'),
+    }
+    return { clause: parsed.data, fallback_reason, diagnostics }
   } catch {
     return localFixture(clause.clause_id)
   }

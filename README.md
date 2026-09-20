@@ -24,11 +24,12 @@ institution's operations, and nothing here is legal or financial advice.
 | Phase | State |
 |---|---|
 | Domain types, capability graph, fixtures | done |
-| Deterministic evaluator + path search | done, 143 tests green across the repo |
+| Deterministic evaluator + path search | done, 157 tests green across the repo |
 | Repair generator (`FAIL -> repair -> PASS`) | done |
 | `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, verified against the live hosted NVIDIA endpoint |
 | Review + Results routes | done |
 | Challenge mode (`/api/challenge`, grader, Results panel) | done |
+| Process view (`/run/:clauseId?v=7\|8`) | done, reached by URL, not in the step nav |
 
 ## Team
 
@@ -57,7 +58,7 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
-npm test         # 143 tests
+npm test         # 157 tests
 npm run typecheck
 npm run build
 npm run dev      # serves the app, /api/extract and /api/challenge together
@@ -297,6 +298,29 @@ call it would make, is gone. Nothing else on the page changes.
 challenge" is pressed: each challenge is two long calls on the key extraction
 shares, and a burst of them was seen to stall the hosted queue for minutes.
 
+## The process view (`/run`)
+
+`/run/:clauseId?v=7|8` plays the whole pipeline for one clause as ten stages:
+clause, Nemotron extraction, validation and hash, path search, checks on the
+decisive path, verdict, repair, re-test, bank changes, replay record. It is built
+for a 16:9 screen recording. It is reached by URL and is not in the step nav.
+
+Every frame is engine output; the only thing added is pacing. `evaluate()` runs
+once, whole, and the page then reveals its real `candidate_paths` in their real
+order. The status line at the bottom says so and carries the two real times: the
+engine's, measured with `performance.now()` around each `evaluate()` call, and
+the model's, as `/api/extract` measured it (`x-extraction-ms`). A cached fixture
+is labelled as one and is never given a model time. A stage that does not apply
+(no repair exists, nothing to re-test, no version change) stays in the list,
+marked skipped, with the reason.
+
+Extraction happens once per clause per page load; a replay or a version switch
+reuses it and says so. Reproduce, on the record stage, runs `evaluate()` again on
+the same inputs and compares the entire report. Controls: clause, graph version,
+Play / Pause, 1× / 2× / Instant (`prefers-reduced-motion` starts on Instant).
+`/api/extract` now also returns `x-extraction-rejection`, the reason a first
+reply was rejected before the retry, so the page can show which guard fired.
+
 ## Repair proposals
 
 The model may write the sentence. It may not invent the number. Every proposal is
@@ -330,6 +354,9 @@ src/lib/challenge.ts       parallel model runs, one retry each, recorded-only fa
 api/challenge.ts           Vercel Function wrapping src/lib/challenge.ts
 src/routes/Review.tsx      select a clause, read and correct the extraction
 src/routes/Results.tsx     verdict, conflicts, candidate paths, repair, re-test, proof
+src/routes/Run.tsx         the process view: a cancellable stage runner over real engine output
+src/components/run/        its stage shell, path-search grid, check ticker, repair rows, record
+src/lib/runFormat.ts       its pure formatting: field rows, record lines, status-line times
 ```
 
 ## Replay record
