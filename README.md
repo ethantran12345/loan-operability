@@ -159,6 +159,22 @@ If the clause leaves something out, the answer is `MANUAL`, never `PASS`, becaus
 we will not mark a promise deliverable on a guess. The agreement's overall
 result is its worst clause.
 
+## How we tested the claim
+
+We gave the same clause and the same capability graph to the same model, with no
+engine, and had the engine grade the answer (`src/domain/challenge.ts`). The
+grader compares:
+
+- the model's verdict against the engine's;
+- the paths it listed against the engine's exhaustive set of complete paths;
+- its verdict on each real path against the engine's verdict on that path;
+- every number in its proposed fix against the values the graph actually holds;
+- the assumptions it declared, plus any the grader detects;
+- run-to-run consistency.
+
+The point is method, not intelligence. The model may well reach the right
+verdict, and when it does the scorecard says so.
+
 ## The three answers a finding can give
 
 Every finding that is not a `PASS` says what to do about it, in one of three
@@ -523,44 +539,10 @@ record.
 
 ## Challenge mode
 
-Challenge mode has no screen in the app now: its panel was removed when the app
-became one screen. The server route, the grader, the recorded responses and
-their tests are in the repository.
-
-The same clause and the same capability-graph file are given to the same model
-with no engine, and the engine then grades the answer. The claim is about
-method, not intelligence: the model may well reach the right verdict, and when
-it does the scorecard says "Agrees with the engine".
-
-**What is sent.** `buildChallengeBundle` (`src/domain/challenge.ts`) produces the
-instructions, the clause text, the transaction time and the complete capability
-graph JSON. `/api/challenge` sends exactly that as one user message, to the same
-endpoint and model as extraction, at temperature 0, twice.
-
-**How it is graded.** `gradeChallenge` is pure and never reads the model's prose
-for the numbers it reports:
-
-- verdict, against the engine's decision for the same clause and graph version;
-- the paths the model listed, against the engine's exhaustive set of complete
-  paths, with the reason each non-path is not a path;
-- its verdict on each real path, against the engine's verdict on that path;
-- every number, cutoff and office in its proposed fix, against the values the
-  graph actually contains;
-- assumptions it declared, plus any the grader detects (a timezone read into a
-  clause that states none);
-- run-to-run consistency, beside the engine's requirement hash.
-
-**No model answer is ever fabricated.** Each reply is validated against
-`ModelAnswerSchema`, with one retry that feeds the error back. A run that still
-fails is dropped. If no run succeeds the route returns
-`{ source: 'unavailable', reason }` and there is no scorecard. The only fallback
-is `src/fixtures/challenge-recorded.json`: real responses recorded from real
-calls, served with `source: 'recorded'` and the timestamp, and only when the
-live call fails for that same clause and graph version.
-
-**Timing.** The route uses one 90 s budget per run inside a 120 s function, and
-launches no hedged duplicates. The reasons, with the timings measured during the
-build, are in the comments in `src/lib/challenge.ts` and
-`src/lib/challengeClient.ts`. `/api/challenge` returns `x-challenge-source`,
-`x-challenge-runs`, `x-challenge-calls` and `x-challenge-ms`, and logs one JSON
-line per request (never the key or the reply).
+Challenge mode gives the same clause and the same capability graph to the same
+model with no engine, and has the engine grade the answer. It has no screen in
+the app: its panel was removed when the app became one screen. The code is
+still in the repository: the bundle and the grader in `src/domain/challenge.ts`,
+the server route in `api/challenge.ts` (`/api/challenge`) with its runner in
+`src/lib/challenge.ts`, and their tests in `src/domain/__tests__/challenge.test.ts`
+and `src/lib/__tests__/challenge.test.ts`.
