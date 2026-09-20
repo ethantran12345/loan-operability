@@ -42,7 +42,8 @@ export async function POST(request: Request): Promise<Response> {
     })
     const { response } = outcome
     const runsOk = response.source === 'live' ? response.answers.length : 0
-    // One structured line per request. Never the key, never the model's reply.
+    // One structured line per request. Never the key, never the model's reply:
+    // `rejections` holds the parser's and the schema's complaints, not the text.
     const log = {
       event: 'challenge',
       clause_id: input.data.clause_id,
@@ -53,6 +54,7 @@ export async function POST(request: Request): Promise<Response> {
       calls: outcome.calls,
       upstream_ms: outcome.upstream_ms,
       failures: outcome.failures,
+      rejections: outcome.rejections,
     }
     if (response.source === 'live') console.log(JSON.stringify(log))
     else console.warn(JSON.stringify(log))

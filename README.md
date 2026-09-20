@@ -256,11 +256,11 @@ each with `recorded_at`, model, `clause_id` and `graph_version`, served with
 `source: 'recorded'` and its timestamp on the badge, and only when the live call
 fails for that same clause and graph version.
 
-**Timing.** Reading the whole graph and listing paths is a ~1,500-token reply,
-and the hosted endpoint took 31 to 39 s to produce it when its queue was short
-and more than 55 s when it was not, so the route uses extraction's budget pattern
-(one budget per run, retry included) at 110 s rather than 25 s, inside a 120 s
-function. It launches no hedged duplicates, because concurrent
+**Timing.** Reading the whole graph and listing paths is a ~1,500-token reply.
+The hosted endpoint produced it in 31 to 65 s when it answered at all, and now
+and then not within two minutes, so the route uses extraction's budget
+pattern (one budget per run, retry included) at 90 s rather than 25 s, inside a
+120 s function. It launches no hedged duplicates, because concurrent
 calls on one key starve each other here: 39 s alone, 133 s beside a twin. For the
 same reason the panel asks for its two runs in turn, one per request, and only
 after the page's own extraction calls have settled. Run 1 is shown and graded as

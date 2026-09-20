@@ -60,6 +60,8 @@ export interface ChallengeOutcome {
   upstream_ms: number
   /** Why each dropped run was dropped, in order. For logs, not the UI. */
   failures: string[]
+  /** Why each rejected model reply was rejected. For logs, not the UI. */
+  rejections: string[]
 }
 
 export interface ChallengeDeps {
@@ -76,14 +78,14 @@ export interface ChallengeDeps {
 /**
  * Extraction's budget pattern, one budget per run with the retry inside it, at a
  * measured number. Reading the whole graph and listing paths is a ~1,500-token
- * reply, which the hosted endpoint took 31 to 39 s to produce when its queue was
- * short and more than 55 s when it was not; 25 s would never succeed. 110 s fits
- * the function's 120 s limit.
+ * reply. The hosted endpoint produced it in 31 to 65 s when it answered at all,
+ * and now and then not within two minutes; 25 s would never succeed. 90 s covers every success seen plus most of a retry, and gives up
+ * early enough that a recording can be served while the reader is still there.
  *
  * Duplicate calls are not launched. Concurrent calls on one key starve each other
  * here (39 s alone, 133 s beside a twin), so a hedge slows the call it is hedging.
  */
-export const CHALLENGE_BUDGET_MS = 110_000
+export const CHALLENGE_BUDGET_MS = 90_000
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -125,12 +127,13 @@ export async function runChallenge(input: ChallengeRequest, deps: ChallengeDeps)
 
   const started = Date.now()
   const failures: string[] = []
+  const rejections: string[] = []
   let calls = 0
 
   const settle = (live: Run[]): ChallengeOutcome => {
     const good = live.filter((r) => r.ok)
     for (const r of live) if (!r.ok) failures.push(r.reason)
-    const base = { runs_requested: input.runs, calls, upstream_ms: Date.now() - started, failures }
+    const base = { runs_requested: input.runs, calls, upstream_ms: Date.now() - started, failures, rejections }
     if (good.length > 0) {
       return {
         ...base,
@@ -216,6 +219,7 @@ export async function runChallenge(input: ChallengeRequest, deps: ChallengeDeps)
       const parsed = parseModelAnswer(content)
       if (parsed.ok) return { ok: true, answer: parsed.answer, raw: content, latency_ms: elapsed() }
 
+      rejections.push(parsed.error)
       messages.push(
         { role: 'assistant', content: content || '(empty reply)' },
         { role: 'user', content: `That reply was rejected.\n${parsed.error}\n\nReturn the corrected JSON object only.` },

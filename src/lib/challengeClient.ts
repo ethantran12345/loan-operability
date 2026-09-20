@@ -8,7 +8,7 @@ import { extractionFor } from '@/lib/extractClient'
 export const CHALLENGE_MODE_ON = import.meta.env.VITE_CHALLENGE_MODE !== 'off'
 
 /** Longer than the server's own budget, so the server's reason wins when it has one. */
-const CLIENT_TIMEOUT_MS = 125_000
+const CLIENT_TIMEOUT_MS = 105_000
 
 const ServedSchema = z.object({
   model: z.string(),
