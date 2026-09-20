@@ -6,13 +6,14 @@ A pre-signing compatibility test for loan agreements.
 
 **Source:** https://github.com/ethantran12345/loan-operability
 
-An employee opens a synthetic document packet: one complete credit agreement and
-four bank operating policies. The application reads the documents, Nemotron turns
+An analyst adds a draft credit agreement. The fictional bank's four operating
+policies are standing state the application already holds, and the bundled sample
+agreement and the policies are all synthetic. The application reads the documents, Nemotron turns
 the borrowing clauses into structured operational requirements, and a deterministic
 engine tests them against a fictional bank's versioned capability registry. Each
 clause returns `PASS`, `MANUAL`, or `FAIL`, with the agreement passage and the
-policy passage behind every finding side by side, a grounded amendment, and a
-re-test the employee releases.
+policy passage behind every finding side by side, a grounded redraft, and a
+re-test of the redrafted terms.
 
 > **Nemotron understands the language. Our system owns the institution's verified
 > operating state and deterministically proves whether a complete execution path
@@ -26,25 +27,43 @@ institution's operations, and nothing here is legal or financial advice.
 | Phase | State |
 |---|---|
 | Domain types, capability graph, fixtures | done |
-| Deterministic evaluator + path search | done, 175 tests green across the repo |
+| Deterministic evaluator + path search | done, 224 tests green across the repo |
 | Repair generator (`FAIL -> repair -> PASS`) | done |
 | `/api/extract` (Nemotron, Zod-validated, fixture fallback) | done, verified against the live hosted NVIDIA endpoint |
-| Review + Results routes | done |
-| Challenge mode (`/api/challenge`, grader, Results panel) | done |
-| Document workspace (`/`, `?v=7\|8`) | done: packet ingestion, citation verification, evidence compare, employee review, re-test |
-| Process view (`/run/:clauseId?v=7\|8`) | done, "Watch the run" in the nav |
+| Challenge mode (`/api/challenge`, grader) | server and grader done and tested; it has no screen in the app now |
+| The app (`/`, `?v=7\|8`) | done: document intake, citation verification, findings with evidence, redraft and re-test, export record |
 
-## The document workspace (`/`)
+## The app (`/`)
 
-Three panes: the document tray, the document viewer, the findings. A four-step
-strip reports real operations only: **Read documents** (files parsed, registry
-citations verified, milliseconds measured), **Extract terms** (how many clauses
-came back live and how many from the cached fixture), **Check routes** (routes
-searched, engine time), **Review findings** (how many clauses the employee has
-reviewed). Nothing is paced. The only decoration is a scan line over a clause
-while that clause's extraction request is actually in flight. The page never
-scrolls on its own: the panes move only when the employee selects a clause, a
-finding, or "Open in document".
+One screen, and `/` is the only route. Any other path lands on it.
+
+**Document intake.** The run starts from what the analyst hands over. The bank's
+policies are standing state: the ones in force for the capabilities version are
+loaded when the app opens, each listed by document id and version, and their
+registry citations are already traced. The analyst adds only the draft agreement, by
+dropping it, choosing the file, or loading the bundled sample, which is always
+labelled as the sample. A file is identified by what its own front matter says it
+is, never by its name. A file that cannot be read is refused with the reason, and
+**Run dry run** stays disabled until an agreement is in and the packet reads.
+
+**The run.** The agreement is on the left and one finding card per borrowing
+clause is on the right. Every clause is asked for when Run is pressed, and the
+requests to `/api/extract` leave 1.5 s apart, in the order the agreement states
+the clauses. A card whose request has not left says so, and then counts its real
+wait from when its own request left. When a response lands the card shows the
+extracted terms, the number of bank routes the engine searched, a mark on each
+term, and the verdict. The engine's work is already finished by then: only the
+reveal is paced for reading, and the status line under the header says so and
+adds up only what is already on screen. All four cards fit at 1440x760 with no
+scrolling. **Export record** downloads the run as JSON: every file's SHA-256 and
+where it came from, the capabilities version, and each clause's decision,
+extraction source and replay record.
+
+**Demo tools** holds four things and nothing else: the bank capabilities version
+switch (v7 / v8), the chat packet (copy or download), **Try live again** per
+clause, and the Nemotron call log. The call log has one entry per clause in the
+order this session asked, with only the extraction result and what the server
+measured of its own call. A cached clause made no call, and none is shown.
 
 ### What is actually read
 
@@ -62,14 +81,17 @@ text the cached extractions were recorded on.
 `key: value` front matter, `<!-- page N -->` markers, `#` articles, `## <id>
 <title>` sections and `(a)` labelled paragraphs. The parser refuses anything else
 with an error rather than guessing. **Not supported:** PDF, DOCX, scanned or image
-documents (there is no OCR), tables, footnotes, nested sub-paragraphs, and upload
-of your own documents. The packet is bundled with the application.
+documents (there is no OCR), tables, footnotes and nested sub-paragraphs. The same
+six files are in `demo-packet/` for dropping into the intake. An agreement of your
+own has to be in this format and carry the sections in review scope. If its clauses
+read differently from the sample's, a cached extraction is labelled
+`Cached · not this text`: only a live extraction describes that file.
 
 **Review scope is configured, not discovered.** `src/fixtures/agreement.json`
 names the four Article II borrowing clauses to extract and check. The other 28
 paragraphs (definitions, interest, fees, repayment, defaults and so on) are read
 and displayed and included in the chat packet, but they are not extracted or
-evaluated, and the viewer says so.
+evaluated.
 
 ### How policy evidence connects to the capability registry
 
@@ -98,27 +120,27 @@ registry value, or pairing registry v7 with the v8 register, is reported as a
 mismatch. Limits: a rule that is in a policy but missing from the registry is not
 detected; capability effective dates and the `outcome` field are not text-verified.
 
-### Findings, review and re-test
+### Findings, redraft and re-test
 
-A finding leads with the outcome and the two values ("Unsupported same-day
-amount", "Agreement: EUR 40,000,000", "Bank limit: EUR 25,000,000"). Selecting it
-opens the agreement passage and the policy passage side by side. An approval
-finding cites two passages: the procedure that demands the approval, then the
-register entry that says whether the authority is in force. A term the clause
-never states is shown as not stated, with nothing highlighted. "Supported
-separately, but not on one route" runs the engine's own comparators one
-capability at a time: EUR 40,000,000 fits the T+1 window, which is not same-day.
+A finding leads with the outcome and the two values ("Same-day amount over the
+bank's limit", agreement 40,000,000, bank up to 25,000,000). Opening it shows the
+agreement passage and the policy passage side by side, and "Open the procedure"
+opens the policy in the document pane with the supporting words highlighted. An
+approval finding cites two passages: the procedure that demands the approval, then
+the register entry that says whether the authority is in force. A term the clause
+never states is shown as not stated, with nothing highlighted.
 
-The employee confirms the extracted terms, chooses which proposed changes to
-include, confirms having reviewed them, and releases the re-test. **Those
-checkboxes are a demo review interaction held in the browser. They are not
-authenticated sign-off, contract approval or a durable audit record**, and they
-cannot move a verdict: the re-test is the same deterministic evaluation, and
-leaving out the amount change re-tests to `FAIL`. The agreement's own result does
-not change when a re-test passes. `MANUAL` and `FAIL` without a drafting fix offer
-no re-test at all.
+Every finding answers "what do I do about this" in one of three ways. A **redraft**
+shows the proposed wording against the clause's own, and **Apply and re-test** runs
+the same deterministic evaluation on the redrafted terms. **The re-test is a demo
+interaction held in the browser. It is not sign-off, contract approval or a durable
+audit record**: the agreement file is unchanged and the agreement's own result does
+not move when a re-test passes. A finding that turns on **the bank's state** (a
+lapsed approval authority) offers no redraft, because no wording touches it; it
+shows what the other capabilities version decides for the same terms. A finding
+that needs **a person** names the step, its owner and the time the bank allows.
 
-Switching the registry version swaps the approvals register in the tray,
+Switching the capabilities version swaps the approvals register in force,
 re-verifies citations and re-runs the checks on the same extracted terms with no
 model call. **Copy chat packet** produces one text with the question, the
 transaction date, all five documents and the registry JSON, and no verdict, so a
@@ -151,7 +173,7 @@ All final behavior is represented by the code and tests in this repository. The
 deterministic evaluator—not an AI assistant—owns `PASS`, `MANUAL`, and `FAIL`.
 
 ```
-npm test         # 175 tests
+npm test         # 224 tests
 npm run typecheck
 npm run build
 npm run dev      # serves the app, /api/extract and /api/challenge together
@@ -172,14 +194,17 @@ authentication, model or parameter problem, so the app is built around it:
   and another at 10 s. The first valid reply wins and the rest are aborted.
 - **One 25 s budget** covers the whole extraction, retry included. Past it, the
   cached extraction is served with `x-extraction-fallback: timeout`.
-- **Pre-warming.** The page requests every clause as the agreement renders, so
-  the queue is waited out while the clause is being read.
+- **Spaced requests.** The free tier answers a burst of four with HTTP 429, so the
+  browser lets requests to `/api/extract` leave 1.5 s apart. The browser's own time
+  limit starts when a request leaves, not when Run is pressed.
 - **Honest labels.** The badge says `Live Nemotron` only when this session's own
-  call produced the requirements on screen. Anything else says `Cached fixture`,
-  gives the reason, and offers to try the live call again.
+  call produced the requirements on screen. Anything else says `Cached`, the call
+  log gives the reason, and Demo tools offers to try the live call again.
 - **Diagnostics.** `/api/extract` returns `x-extraction-source`,
-  `x-extraction-fallback`, `x-extraction-attempts`, `x-extraction-calls` and
-  `x-extraction-ms`, and logs one JSON line per request (never the key or the text).
+  `x-extraction-fallback`, `x-extraction-attempts`, `x-extraction-calls`,
+  `x-extraction-ms` and `x-extraction-rejection` (the reason a first reply was
+  rejected before the retry), and logs one JSON line per request (never the key or
+  the text). The Nemotron call log in Demo tools shows these values as measured.
 
 The cached extractions in `src/fixtures/extractions.json` are recordings of real
 replies from the configured Nemotron model that passed every check below.
@@ -252,9 +277,9 @@ Nemotron is reached through NVIDIA's hosted API and nothing else:
 
 The fallback is labelled and never relabelled: a valid hosted response is
 **Live Nemotron**; a timeout, upstream error, missing key, or invalid output is
-**Cached fixture**, visibly. The free hosted tier is intermittent (a successful
+**Cached**, visibly. The free hosted tier is intermittent (a successful
 production extraction has taken ~7 s; others exceed the budget), which the
-labels and pre-warming absorb.
+labels and the spaced requests absorb.
 
 Brev GPU credit exists and could self-host a Nemotron NIM as a reliability
 backup. It is not the default path and the app is not migrated to it unless
@@ -310,19 +335,21 @@ channel, notice fields.
 engine returns `FAIL` with exactly one conflict. The decisive fact is a date held
 in the capability graph. In the document packet the same date is written in the
 approvals register (MCB-POL-007), and the chat packet includes it, so a reader or
-a model given the packet can find it too. The Results page
-shows this from the engine's own checks: the rulebook-checkable constraints on
-one side, the approval check and the authority's effective dates on the other. It
-does not show, quote or imitate any model's answer.
+a model given the packet can find it too. The finding card
+shows this from the engine's own checks: every term the rulebook can check carries
+a pass mark, and the one failing check is the approval, with the authority's expiry
+date and the register entry that records it. It does not show, quote or imitate any
+model's answer.
 
 **v7 vs v8.** The institution's state is a versioned input, not a constant. Graph
 v7 (2026-09-09) is the baseline with the lapsed authority. Graph v8 (2026-09-15)
 is identical except that Treasury renewed `apr-021`, effective 2026-09-15. The
-version selector on Results re-runs the evaluator on the same extracted clause,
-with no re-extraction and no model call, and the decision moves from `FAIL` to
-`MANUAL` with owner `treasury`. Both replay records stay on screen: same
-`requirement_bundle_hash`, different `capability_graph_version`, different
-decision. The three original clauses decide the same way on both versions
+version switch, in Demo tools and on the finding itself, re-runs the evaluator on
+the same extracted clause, with no re-extraction and no model call, and the
+decision moves from `FAIL` to `MANUAL` with owner `treasury`. The exported records
+differ the same way: same `requirement_bundle_hash`, different
+`capability_graph_version`, different decision. The three original clauses decide
+the same way on both versions
 (`src/domain/__tests__/benchmark.test.ts`).
 
 **18 → 32 paths.** Candidate paths are a cartesian product, so the two new
@@ -332,7 +359,10 @@ decisions did not move.
 
 ## Challenge mode
 
-**Check the model's work.** On Results, the same clause and the same
+**Check the model's work.** Challenge mode has no screen in the app now: its panel
+was removed when the app became one screen. The server route, the
+grader, the recorded responses and their tests are in the repository and described
+here. The same clause and the same
 capability-graph file are given to the same model with no engine, and the engine
 then grades the answer. The claim is about method, not intelligence: the model
 may well reach the right verdict, and when it does the scorecard says "Agrees
@@ -345,8 +375,7 @@ instructions, the clause text, the transaction time and the complete capability
 graph JSON, the same file the engine reads. `/api/challenge` sends exactly that
 as one user message, to the same NVIDIA endpoint and model as extraction, at
 temperature 0 exactly as extraction uses, twice in parallel. The temperature is
-not raised to manufacture drift: if the runs agree, the scorecard says so. The
-panel's "Files sent to the model" disclosure shows all of it.
+not raised to manufacture drift: if the runs agree, the scorecard says so.
 
 **How it is graded.** `gradeChallenge` is pure and never reads the model's prose
 for the numbers it reports:
@@ -365,11 +394,11 @@ for the numbers it reports:
 **No model answer is ever fabricated.** Each reply is parsed with the same
 tolerant JSON parser as extraction and validated against `ModelAnswerSchema`,
 with one retry that feeds the error back. A run that still fails is dropped. If
-no run succeeds the route returns `{ source: 'unavailable', reason }` and the
-panel shows one line and no scorecard. The only fallback is
+no run succeeds the route returns `{ source: 'unavailable', reason }` and there
+is no scorecard. The only fallback is
 `src/fixtures/challenge-recorded.json`: real responses recorded from real calls,
 each with `recorded_at`, model, `clause_id` and `graph_version`, served with
-`source: 'recorded'` and its timestamp on the badge, and only when the live call
+`source: 'recorded'` and its timestamp, and only when the live call
 fails for that same clause and graph version.
 
 **Timing.** Reading the whole graph and listing paths is a ~1,500-token reply.
@@ -378,42 +407,11 @@ and then not within two minutes, so the route uses extraction's budget
 pattern (one budget per run, retry included) at 90 s rather than 25 s, inside a
 120 s function. It launches no hedged duplicates, because concurrent
 calls on one key starve each other here: 39 s alone, 133 s beside a twin. For the
-same reason the panel asks for its two runs in turn, one per request, and only
-after the page's own extraction calls have settled. Run 1 is shown and graded as
-soon as it lands, and the reproducibility line fills in when run 2 does. Only the
-clause on screen is asked about, and again when the graph version changes.
+same reason the client (`src/lib/challengeClient.ts`) asks for its two runs in
+turn, one per request.
 `/api/challenge` returns `x-challenge-source`, `x-challenge-runs`,
 `x-challenge-calls` and `x-challenge-ms`, and logs one JSON line per request
 (never the key or the reply).
-
-**Kill switch.** Build with `VITE_CHALLENGE_MODE=off` and the panel, and every
-call it would make, is gone. Nothing else on the page changes.
-`VITE_CHALLENGE_PREWARM=off` keeps the panel but asks the model only when "Run
-challenge" is pressed: each challenge is two long calls on the key extraction
-shares, and a burst of them was seen to stall the hosted queue for minutes.
-
-## The process view (`/run`)
-
-`/run/:clauseId?v=7|8` plays the whole pipeline for one clause as ten stages:
-clause, Nemotron extraction, validation and hash, path search, checks on the
-decisive path, verdict, repair, re-test, bank changes, replay record. It is built
-for a 16:9 screen recording. It is "Watch the run" in the nav.
-
-Every frame is engine output; the only thing added is pacing. `evaluate()` runs
-once, whole, and the page then reveals its real `candidate_paths` in their real
-order. The status line at the bottom says so and carries the two real times: the
-engine's, measured with `performance.now()` around each `evaluate()` call, and
-the model's, as `/api/extract` measured it (`x-extraction-ms`). A cached fixture
-is labelled as one and is never given a model time. A stage that does not apply
-(no repair exists, nothing to re-test, no version change) stays in the list,
-marked skipped, with the reason.
-
-Extraction happens once per clause per page load; a replay or a version switch
-reuses it and says so. Reproduce, on the record stage, runs `evaluate()` again on
-the same inputs and compares the entire report. Controls: clause, graph version,
-Play / Pause, 1× / 2× / Instant (`prefers-reduced-motion` starts on Instant).
-`/api/extract` now also returns `x-extraction-rejection`, the reason a first
-reply was rejected before the retry, so the page can show which guard fired.
 
 ## Repair proposals
 
@@ -449,17 +447,21 @@ api/challenge.ts           Vercel Function wrapping src/lib/challenge.ts
 src/packet/                the synthetic document packet: agreement and policies, as text
 src/documents/parse.ts     packet text format v1 parser: ids, versions, pages, exact offsets
 src/documents/packet.ts    which files make up the packet for each registry version
+src/documents/intake.ts    document intake: the files handed over, checked; the standing policies in force
 src/documents/citations.ts registry-to-policy citation verifier, evidence passages per check
-src/documents/locate.ts    where a clause states a term; terms another capability accepts alone
+src/documents/locate.ts    where a clause states a term; a proposed redraft against the clause's wording
 src/documents/bundle.ts    the chat packet for the comparison video
-src/lib/useAgreementReview.ts  read, extract, check: the workspace's real operations
-src/routes/Workspace.tsx   the document workspace: tray, viewer, findings
-src/components/workspace/  its tray, viewer, compare view, findings panel, progress strip
-src/routes/Review.tsx      single-clause review with amount correction (`/review`)
-src/routes/Results.tsx     verdict, conflicts, candidate paths, repair, re-test, proof
-src/routes/Run.tsx         the process view: a cancellable stage runner over real engine output
-src/components/run/        its stage shell, path-search grid, check ticker, repair rows, record
-src/lib/runFormat.ts       its pure formatting: field rows, record lines, status-line times
+src/lib/challengeClient.ts browser client for /api/challenge: two runs, asked for in turn
+src/lib/useAgreementReview.ts  read, extract, check: the run's real operations
+src/lib/extractClient.ts   browser client for /api/extract: spaced requests, honest labels, fixture fallback
+src/lib/callLog.ts         the Nemotron call log: only measured values, and no call shown where none was made
+src/lib/resolution.ts      what to do about a finding: a redraft, the bank's state, or a person
+src/routes/Dryrun.tsx      the app: intake, the run, the findings, export record
+src/components/dryrun/     intake panel, agreement pane, finding cards, Demo tools, reveal pacing
+src/components/workspace/  the document viewer, text marking and file rows the app reads documents with
+src/components/run/        path-search grid, elapsed counter and typewriter used by the finding cards
+src/lib/runFormat.ts       pure formatting: field rows, record lines, status-line times
+demo-packet/               the same six synthetic files, for dropping into the intake
 ```
 
 ## Replay record
