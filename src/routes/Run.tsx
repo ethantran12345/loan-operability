@@ -470,7 +470,8 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg">
               <Loader2 aria-hidden className="size-5 animate-spin text-accent" />
               <span>
-                Asking Nemotron to extract Section {clause.source_span.section} <span className="text-ink-soft">· attempt 1 ·</span>
+                Asking Nemotron to extract Section {clause.source_span.section}{' '}
+                <span className="text-ink-soft">· attempt 1, with one retry if a guard rejects the reply ·</span>
               </span>
               {view.extractStartedAt !== null && <Elapsed since={view.extractStartedAt} />}
             </p>
