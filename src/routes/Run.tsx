@@ -383,7 +383,6 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
   const mainChecks = main ? (decisivePath(main)?.checks ?? []) : []
   const checkCounts = countDecisions(mainChecks.map((k) => ({ decision: k.verdict })))
   const repairSources = plan ? [...new Set(plan.proposals.map((x) => x.capability_id))] : []
-  const words = clause.source_text.trim().split(/\s+/).length
   const typeMs = speed === 'instant' ? 0 : speed === '2x' ? 160 : 320
   const animate = speed !== 'instant'
 
@@ -393,6 +392,26 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
     ...(other ? [{ key: 'other', title: `As drafted · graph v${other.graph.version}`, e: other }] : []),
   ]
   const allReproduced = records.length > 0 && records.every((r) => reproduced[r.key]?.identical)
+  const phase = view.stage <= 2 ? 0 : view.stage <= 6 ? 1 : view.stage === 7 ? 2 : 3
+  const decisionLabel = !main
+    ? 'Checking the bank'
+    : view.stage < 8 || !revised
+      ? main.report.decision === 'FAIL'
+        ? 'Block before signing'
+        : main.report.decision === 'MANUAL'
+          ? 'Operations review needed'
+          : 'Safe to operate'
+      : revised.report.decision === 'PASS'
+        ? 'Operable after revision'
+        : 'Still needs review'
+  const firstConflict = mainResult?.conflicts[0]
+  const decisionCaption = !main
+    ? 'Searching every complete operating route.'
+    : revised && view.stage >= 8 && revised.report.decision === 'PASS'
+      ? 'The revised terms now fit one complete operating route.'
+      : firstConflict
+        ? `Contract: ${firstConflict.required}. Bank: ${firstConflict.supported}.`
+        : DECISION_MEANING[main.report.decision]
 
   return (
     <div className="pb-14">
@@ -438,17 +457,54 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         </Button>
       </div>
 
-      <h1 className="mt-5 font-serif text-3xl leading-tight font-semibold">
-        Section {clause.source_span.section}
-        <span className="ml-3 text-xl font-normal text-ink-soft">{clause.headline}</span>
-      </h1>
-      <p className="mt-1 text-sm text-ink-soft">
-        One clause through the whole pipeline, against {graph.institution}, capability graph v{version}.
-      </p>
+      <section className="mt-5 overflow-hidden rounded-xl border border-rule bg-sheet shadow-sm">
+        <div className="grid gap-6 px-5 py-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)] lg:px-6">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.16em] text-accent uppercase">Pre-signing operations check</p>
+            <h1 className="mt-2 max-w-3xl font-serif text-3xl leading-tight font-semibold sm:text-4xl">
+              Can the bank deliver what this contract promises?
+            </h1>
+            <p className="mt-2 max-w-2xl text-base text-ink-soft">
+              A deal team is ready to sign. This run tests Section {clause.source_span.section} against the bank’s real operating limits before the promise becomes binding.
+            </p>
+          </div>
+          <div className={cn(
+            'rounded-lg border px-5 py-4',
+            !main && 'border-accent bg-accent-soft',
+            main?.report.decision === 'FAIL' && (!revised || view.stage < 8) && 'border-fail-rule bg-fail-soft',
+            main?.report.decision === 'MANUAL' && (!revised || view.stage < 8) && 'border-manual-rule bg-manual-soft',
+            ((main?.report.decision === 'PASS' && (!revised || view.stage < 8)) || (revised && view.stage >= 8 && revised.report.decision === 'PASS')) && 'border-pass-rule bg-pass-soft',
+          )}>
+            <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">Signing decision</p>
+            <p className={cn(
+              'mt-1 font-serif text-2xl font-semibold',
+              main?.report.decision === 'FAIL' && (!revised || view.stage < 8) && 'text-fail',
+              main?.report.decision === 'MANUAL' && (!revised || view.stage < 8) && 'text-manual',
+              revised && view.stage >= 8 && revised.report.decision === 'PASS' && 'text-pass',
+            )}>{decisionLabel}</p>
+            <p className="mt-1 text-sm text-ink-soft">
+              {decisionCaption}
+            </p>
+          </div>
+        </div>
+        <ol className="grid border-t border-rule sm:grid-cols-4">
+          {[
+            ['1', 'Promise', 'Read the contract'],
+            ['2', 'Test', 'Check the bank'],
+            ['3', 'Fix', 'Draft an operable term'],
+            ['4', 'Prove', 'Re-test and record'],
+          ].map(([n, label, caption], i) => (
+            <li key={label} className={cn('flex items-center gap-3 px-4 py-3 sm:border-r sm:border-rule sm:last:border-r-0', i < phase && 'bg-pass-soft', i === phase && 'bg-accent-soft')}>
+              <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold', i < phase && 'border-pass bg-pass text-sheet', i === phase && 'border-accent bg-accent text-sheet', i > phase && 'border-rule text-ink-faint')}>{i < phase ? <Check className="size-4" /> : n}</span>
+              <span><strong className="block text-sm">{label}</strong><span className="block text-xs text-ink-faint">{caption}</span></span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <div className="mt-4 space-y-1.5">
         {/* 1 */}
-        <Stage {...stage(1)} title="Clause" summary={`§${clause.source_span.section} · page ${clause.source_span.page} · ${words} words`}>
+        <Stage {...stage(1)} title="What the contract promises" summary={`§${clause.source_span.section} · ${clause.headline}`}>
           <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">
             {agreement.document} · Section {clause.source_span.section} · page {clause.source_span.page}
           </p>
@@ -460,7 +516,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 2 */}
         <Stage
           {...stage(2)}
-          title="Nemotron extraction"
+          title="Turn legal language into operating facts"
           summary={
             extraction &&
             `${live ? 'Live' : 'Cached fixture'} · ${extraction.clause.model ?? 'Nemotron'} · ${modelCallText(extraction)}${view.reused ? ' · reused this session' : ''} · ${extraction.clause.requirements.length} requirement${extraction.clause.requirements.length === 1 ? '' : 's'} · ${req?.ambiguities.length ?? 0} ambiguit${req?.ambiguities.length === 1 ? 'y' : 'ies'}`
@@ -537,7 +593,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 3 */}
         <Stage
           {...stage(3)}
-          title="Validation and hash"
+          title="Lock the inputs"
           summary={view.hash && `${shortHash(view.hash)} · graph v${version} · evaluator ${EVALUATOR_VERSION}`}
         >
           <div className="space-y-2 text-lg">
@@ -561,14 +617,14 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 4 */}
         <Stage
           {...stage(4)}
-          title="Path search"
+          title="Test every way the bank could execute"
           summary={
             main && mainResult && mainCounts &&
             `${mainResult.candidate_paths.length} paths · ${mainCounts.PASS} pass · ${mainCounts.MANUAL} manual · ${mainCounts.FAIL} fail · engine ${ms(main.ms)}`
           }
         >
           {mainResult ? (
-            <PathSearch paths={mainResult.candidate_paths} selectedId={mainResult.selected_path_id} shown={p['main.paths'] ?? 0} animate={animate} />
+            <PathSearch paths={mainResult.candidate_paths} selectedId={mainResult.selected_path_id} shown={p['main.paths'] ?? 0} animate={animate} presentation />
           ) : (
             <p className="text-sm text-ink-soft">Every complete operating path through the capability graph is searched. None is skipped.</p>
           )}
@@ -577,7 +633,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 5 */}
         <Stage
           {...stage(5)}
-          title="Checks on the decisive path"
+          title="Show why the best available route fails"
           summary={
             main &&
             `${mainChecks.length} checks · ${checkCounts.FAIL} fail · ${checkCounts.MANUAL} need a person · ${checkCounts.PASS} pass`
@@ -586,13 +642,13 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
           <p className="mb-2 text-sm text-ink-soft">
             Every comparator on <Id>{mainResult?.selected_path_id ?? 'none'}</Id>, the path the decision is reported against.
           </p>
-          <CheckTicker checks={mainChecks} shown={p['main.checks'] ?? 0} />
+          <CheckTicker checks={mainChecks} shown={p['main.checks'] ?? 0} presentation />
         </Stage>
 
         {/* 6 */}
         <Stage
           {...stage(6)}
-          title="Verdict"
+          title="Stop an unsupported promise before signing"
           summary={
             main && (
               <>
@@ -616,7 +672,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 7 */}
         <Stage
           {...stage(7)}
-          title="Repair"
+          title="Change the contract to match reality"
           summary={
             view.skipped[7] ??
             (plan &&
@@ -661,7 +717,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 8 */}
         <Stage
           {...stage(8)}
-          title="Re-test"
+          title="Test the revised promise"
           summary={
             view.skipped[8] ??
             (revised &&
@@ -686,7 +742,7 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 9 */}
         <Stage
           {...stage(9)}
-          title="Bank changes"
+          title="What if the bank’s capabilities change?"
           summary={
             view.skipped[9] ??
             (main && other &&
@@ -724,14 +780,14 @@ function Process({ clause, version }: { clause: AgreementClause; version: number
         {/* 10 */}
         <Stage
           {...stage(10)}
-          title="Record"
+          title="Leave an audit trail"
           summary={view.hash && `${allReproduced ? 'Reproducible' : 'Replay record'} · ${shortHash(view.hash)}`}
         >
           <p className="mb-3 text-sm text-ink-soft">
-            The replay record{records.length === 1 ? '' : 's'} of this run.{' '}
+            These records prove which contract terms, bank rules and engine version produced each answer.{' '}
             {view.hash && records.every((r) => r.key === 'revised' || r.e.report.replay.requirement_bundle_hash === view.hash) &&
-              'The requirement hash is the one computed at stage 3.'}{' '}
-            Reproduce runs the evaluator again on the same inputs and compares the whole report.
+              'Both records use the locked input from this run.'}{' '}
+            Reproduce runs the same test again and compares every output.
           </p>
           <div className={cn('grid gap-3', records.length > 1 && 'xl:grid-cols-2')}>
             {records.map(({ key, title, e }) => {

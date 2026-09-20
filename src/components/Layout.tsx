@@ -43,6 +43,9 @@ export function Layout() {
                 2. Operability result
               </span>
             )}
+            <NavLink to="/run/credit-agreement-2.03-a" className={STEP}>
+              Watch the run
+            </NavLink>
           </nav>
         </div>
       </header>

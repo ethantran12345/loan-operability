@@ -285,17 +285,71 @@ export function PathSearch({
   shown,
   dense = false,
   animate = true,
+  presentation = false,
 }: {
   paths: CandidatePath[]
   selectedId: string | null
   shown: number
   dense?: boolean
   animate?: boolean
+  /** Lead with the business answer; keep the full route matrix one click away. */
+  presentation?: boolean
 }) {
   const seen = paths.slice(0, shown)
   const counts = countDecisions(seen)
   const decisiveIndex = paths.findIndex((p) => p.path_id === selectedId)
   const searching = shown > 0 && shown < paths.length
+
+  if (presentation) {
+    return (
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-rule bg-sheet px-4 py-3">
+            <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">Operating routes tested</p>
+            <p className="mt-1 font-serif text-3xl font-semibold tabular-nums">{shown}<span className="text-lg font-normal text-ink-faint">/{paths.length}</span></p>
+          </div>
+          <div className="rounded-lg border border-pass-rule bg-pass-soft px-4 py-3">
+            <p className="text-xs font-semibold tracking-wide text-pass uppercase">Routes that work</p>
+            <p className="mt-1 font-serif text-3xl font-semibold text-pass tabular-nums">{counts.PASS}</p>
+          </div>
+          <div className="rounded-lg border border-fail-rule bg-fail-soft px-4 py-3">
+            <p className="text-xs font-semibold tracking-wide text-fail uppercase">Routes blocked</p>
+            <p className="mt-1 font-serif text-3xl font-semibold text-fail tabular-nums">{counts.FAIL}</p>
+          </div>
+        </div>
+
+        <ol aria-label="Operating route search progress" className="grid grid-cols-8 gap-1 sm:grid-cols-16">
+          {paths.map((path, i) => (
+            <li
+              key={path.path_id}
+              title={i < shown ? `${path.path_id}: ${path.decision}` : `${path.path_id}: not tested yet`}
+              className={cn(
+                'h-3 rounded-sm border transition-colors duration-150',
+                i >= shown && 'border-rule bg-rule-soft',
+                i < shown && path.decision === 'PASS' && 'border-pass-rule bg-pass',
+                i < shown && path.decision === 'MANUAL' && 'border-manual-rule bg-manual',
+                i < shown && path.decision === 'FAIL' && 'border-fail-rule bg-fail',
+              )}
+            >
+              <span className="sr-only">{i < shown ? `${path.decision} route` : 'Pending route'}</span>
+            </li>
+          ))}
+        </ol>
+
+        <DecisivePath path={paths[decisiveIndex]} visible={decisiveIndex >= 0 && shown > decisiveIndex} />
+
+        <details className="group rounded-lg border border-rule bg-paper/50">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm font-semibold text-ink-soft hover:text-ink">
+            Inspect all {paths.length} routes and capability IDs
+          </summary>
+          <div className="border-t border-rule px-4 py-3">
+            <PathSearch paths={paths} selectedId={selectedId} shown={shown} dense={dense} animate={animate} />
+          </div>
+        </details>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
       {!dense && <LegColumns paths={paths} current={searching ? (paths[shown - 1] ?? null) : null} />}
@@ -316,12 +370,64 @@ export function PathSearch({
 // ---------------------------------------------------------------- checks
 
 /** The CheckResult rows of the decisive path, ticking in. */
-export function CheckTicker({ checks, shown, dense = false }: { checks: CheckResult[]; shown: number; dense?: boolean }) {
+export function CheckTicker({
+  checks,
+  shown,
+  dense = false,
+  presentation = false,
+}: {
+  checks: CheckResult[]
+  shown: number
+  dense?: boolean
+  /** Show only decision-changing checks first, with the comparator table in a disclosure. */
+  presentation?: boolean
+}) {
   if (checks.length === 0) {
     return (
       <p className="text-sm text-ink-soft">
         No comparator could evaluate this path. An unevaluated path is never treated as a PASS.
       </p>
+    )
+  }
+  if (presentation) {
+    const visible = checks.slice(0, shown)
+    const blockers = visible.filter((check) => check.verdict !== 'PASS')
+    const passed = visible.length - blockers.length
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge tone="pass">{passed} supported</Badge>
+          {blockers.length > 0 && <Badge tone="fail">{blockers.length} blocking</Badge>}
+          <span className="text-ink-soft">Only decision-changing checks are shown below.</span>
+        </div>
+        <ol className="grid gap-2 lg:grid-cols-2">
+          {blockers.map((check, i) => {
+            const Icon = DECISION_ICON[check.verdict]
+            return (
+              <li key={`${check.field}-${i}`} className={cn('rounded-lg border px-4 py-3', SURFACE[check.verdict])}>
+                <div className="flex items-center gap-2">
+                  <Icon aria-hidden className={cn('size-4', DECISION_TEXT[check.verdict])} />
+                  <strong className="font-semibold">{humanize(check.field)}</strong>
+                  <Id className="ml-auto">{check.capability_id}</Id>
+                </div>
+                <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
+                  <p><span className="block text-xs text-ink-faint">Contract promises</span>{check.required}</p>
+                  <ArrowRight aria-hidden className="size-4 text-ink-faint" />
+                  <p><span className="block text-xs text-ink-faint">Bank can support</span>{check.supported}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+        <details className="rounded-lg border border-rule bg-paper/50">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm font-semibold text-ink-soft hover:text-ink">
+            Inspect all {checks.length} capability checks
+          </summary>
+          <div className="border-t border-rule p-3">
+            <CheckTicker checks={checks} shown={shown} dense={dense} />
+          </div>
+        </details>
+      </div>
     )
   }
   if (dense) {
@@ -429,21 +535,38 @@ export function RecordPanel({
         {title} <span className={DECISION_TEXT[decision]}>{decision}</span>
         <span className="ml-auto flex items-center gap-2 font-normal">{children}</span>
       </figcaption>
-      <pre className="overflow-hidden rounded-b-lg bg-ink p-3 font-mono text-[0.7rem] leading-relaxed break-all whitespace-pre-wrap text-sheet">
-        {lines.map((line, i) => (
-          <Fragment key={i}>
-            {line.includes('"requirement_bundle_hash"') || line.includes('"capability_graph_version"') ? (
-              <>
-                {'  '}
-                <mark className="rounded-sm bg-mark px-0.5 font-semibold text-ink">{line.trimStart()}</mark>
-              </>
-            ) : (
-              line
-            )}
-            {i < lines.length - 1 && '\n'}
-          </Fragment>
-        ))}
-      </pre>
+      <div className="grid gap-3 border-t border-rule px-3 py-3 sm:grid-cols-3">
+        <div>
+          <p className="text-xs text-ink-faint">Exact input fingerprint</p>
+          <p className="mt-0.5 font-mono text-sm font-semibold">{record.requirement_bundle_hash.slice(0, 18)}…</p>
+        </div>
+        <div>
+          <p className="text-xs text-ink-faint">Bank capability version</p>
+          <p className="mt-0.5 text-sm font-semibold">Graph v{record.capability_graph_version}</p>
+        </div>
+        <div>
+          <p className="text-xs text-ink-faint">Evidence used</p>
+          <p className="mt-0.5 text-sm font-semibold">{record.evidence_ids.length} source{record.evidence_ids.length === 1 ? '' : 's'}</p>
+        </div>
+      </div>
+      <details className="border-t border-rule">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-ink-soft hover:text-ink">Inspect signed replay data</summary>
+        <pre className="overflow-hidden bg-ink p-3 font-mono text-[0.7rem] leading-relaxed break-all whitespace-pre-wrap text-sheet">
+          {lines.map((line, i) => (
+            <Fragment key={i}>
+              {line.includes('"requirement_bundle_hash"') || line.includes('"capability_graph_version"') ? (
+                <>
+                  {'  '}
+                  <mark className="rounded-sm bg-mark px-0.5 font-semibold text-ink">{line.trimStart()}</mark>
+                </>
+              ) : (
+                line
+              )}
+              {i < lines.length - 1 && '\n'}
+            </Fragment>
+          ))}
+        </pre>
+      </details>
     </figure>
   )
 }

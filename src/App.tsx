@@ -12,7 +12,7 @@ export function App() {
         <Route element={<Layout />}>
           <Route index element={<Review />} />
           <Route path="results" element={<Results />} />
-          {/* The process view. Reached by URL; not in the step nav. */}
+          {/* The process view is the guided demo entry point. */}
           <Route path="run" element={<Run />} />
           <Route path="run/:clauseId" element={<Run />} />
           <Route path="*" element={<Navigate to="/" replace />} />
