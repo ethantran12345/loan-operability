@@ -11,9 +11,10 @@ import bookingRaw from '../packet/ops-310-booking-entities.v4.0.md?raw'
 import approvalsV3Raw from '../packet/pol-007-approvals.v3.md?raw'
 import approvalsV4Raw from '../packet/pol-007-approvals.v4.md?raw'
 import { agreement, type AgreementClause } from '../domain/fixtures'
-import { findParagraph, parseDocument, type ParsedDocument } from './parse'
+import { findParagraph, parseDocument, type DocumentKind, type ParsedDocument } from './parse'
 
-interface PacketFile {
+/** One file as it was handed over: its name and its exact text. Bundled or dropped, the reader cannot tell. */
+export interface PacketFile {
   file: string
   raw: string
 }
@@ -64,18 +65,71 @@ export interface Packet {
 
 const parseFile = (f: PacketFile): PacketDocument => ({ ...parseDocument(f.raw, f.file), file: f.file })
 
-/**
- * Read the packet for one registry version. The review scope (which clauses are
- * extracted and checked) is configured in fixtures/agreement.json by section
- * reference; the clause TEXT and page come from the parsed document, so an edit
- * to the agreement file changes what is extracted.
- */
-export function readPacket(graphVersion: number): Packet {
-  const started = performance.now()
+const versionLabel = (v: string) => (/^\d/.test(v) ? `v${v}` : v)
+
+/** The sample packet: every file bundled with the app, both approvals registers included. */
+export const samplePacketFiles = (): PacketFile[] => [AGREEMENT, NOTICE_INTAKE, FUNDING, BOOKING, APPROVALS_V3, APPROVALS_V4]
+
+/** A document a registry version needs, identified by what the document says it is, not by its filename. */
+export interface RequiredDocument {
+  /** The name this document has in the sample packet. A hint for the reader; never used to match. */
+  file: string
+  document_id: string
+  version: string
+  kind: DocumentKind
+  title: string
+}
+
+const required = new Map<number, RequiredDocument[]>()
+
+/** What a packet must hold for one registry version: the agreement in review scope, and the policies in force. */
+export function requiredDocuments(graphVersion: number): RequiredDocument[] {
   const files = POLICY_FILES[graphVersion]
   if (!files) throw new Error(`No policy packet for capability registry v${graphVersion}`)
-  const agreementDoc = parseFile(AGREEMENT)
-  const policies = files.map(parseFile)
+  let known = required.get(graphVersion)
+  if (!known) {
+    known = [AGREEMENT, ...files].map((f) => {
+      const { meta } = parseDocument(f.raw, f.file)
+      return { file: f.file, document_id: meta.document_id, version: meta.version, kind: meta.kind, title: meta.title }
+    })
+    required.set(graphVersion, known)
+  }
+  return known
+}
+
+/** Read the bundled sample packet for one registry version. */
+export function readPacket(graphVersion: number): Packet {
+  const files = POLICY_FILES[graphVersion]
+  if (!files) throw new Error(`No policy packet for capability registry v${graphVersion}`)
+  return readPacketFrom([AGREEMENT, ...files], graphVersion)
+}
+
+/**
+ * Read a packet for one registry version out of the files given, whoever gave
+ * them. The review scope (which clauses are extracted and checked) is configured
+ * in fixtures/agreement.json by section reference; the clause TEXT and page come
+ * from the parsed document, so an edit to the agreement file changes what is
+ * extracted. Files the registry version does not need are left out of the packet.
+ * Anything missing or ambiguous throws: a packet is never completed by guessing.
+ */
+export function readPacketFrom(given: PacketFile[], graphVersion: number): Packet {
+  const started = performance.now()
+  const needed = requiredDocuments(graphVersion)
+  const parsed = given.map(parseFile)
+
+  const agreements = parsed.filter((d) => d.meta.kind === 'agreement')
+  if (agreements.length === 0) throw new Error('There is no agreement document in the packet')
+  if (agreements.length > 1) throw new Error(`More than one agreement is in the packet: ${agreements.map((d) => d.file).join(', ')}`)
+  const agreementDoc = agreements[0]!
+
+  const policies = needed
+    .filter((r) => r.kind === 'policy')
+    .map((r) => {
+      const hits = parsed.filter((d) => d.meta.kind === 'policy' && d.meta.document_id === r.document_id && d.meta.version === r.version)
+      if (hits.length === 0) throw new Error(`Registry v${graphVersion} needs ${r.document_id} ${versionLabel(r.version)} (${r.file}) and it is not in the packet`)
+      if (hits.length > 1) throw new Error(`${hits.map((d) => d.file).join(' and ')} both say they are ${r.document_id} ${versionLabel(r.version)}`)
+      return hits[0]!
+    })
 
   if (agreementDoc.meta.version !== agreement.agreement_version) {
     throw new Error(
@@ -111,6 +165,6 @@ export function readPacket(graphVersion: number): Packet {
 /** True when this policy file is not the one in the other registry version's packet. */
 export function changedBetweenVersions(doc: PacketDocument, otherVersion: number): boolean {
   if (doc.meta.kind !== 'policy') return false
-  const other = POLICY_FILES[otherVersion]
-  return other !== undefined && !other.some((f) => f.file === doc.file)
+  if (!POLICY_FILES[otherVersion]) return false
+  return !requiredDocuments(otherVersion).some((r) => r.document_id === doc.meta.document_id && r.version === doc.meta.version)
 }

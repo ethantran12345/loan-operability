@@ -31,7 +31,17 @@ export interface Extraction {
   fallback_reason: FallbackReason | null
   /** Absent when /api/extract never answered and the bundled fixture is shown. */
   diagnostics?: ExtractionDiagnostics
+  /**
+   * True when a cached fixture was served for a clause whose words are not the
+   * words it was recorded from: an agreement file that is not the sample. The
+   * cache is keyed by clause, so it cannot know. It is shown, and it is called this.
+   */
+  other_text?: boolean
 }
+
+/** A cached extraction describes the text it was recorded from, and only that text. */
+const checkedAgainst = (clause: AgreementClause, e: Extraction): Extraction =>
+  e.clause.extraction_source === 'fixture' && e.clause.source_text !== clause.source_text ? { ...e, other_text: true } : e
 
 const localFixture = (clauseId: string): Extraction => ({
   clause: { ...cachedExtraction(clauseId), extraction_source: 'fixture' },
@@ -52,10 +62,12 @@ const inFlight = new Map<string, Promise<Extraction>>()
  * `fresh` drops the remembered result and asks again.
  */
 export function extractionFor(clause: AgreementClause, fresh = false): Promise<Extraction> {
-  const known = inFlight.get(clause.clause_id)
+  // Remembered by the words as well as the clause: a different agreement file is a different question.
+  const key = `${clause.clause_id}\n${clause.source_text}`
+  const known = inFlight.get(key)
   if (known && !fresh) return known
   const request = requestExtraction(clause, AbortSignal.timeout(CLIENT_TIMEOUT_MS))
-  inFlight.set(clause.clause_id, request)
+  inFlight.set(key, request)
   return request
 }
 
@@ -85,10 +97,10 @@ export async function requestExtraction(
       }),
       signal,
     })
-    if (!res.ok) return localFixture(clause.clause_id)
+    if (!res.ok) return checkedAgainst(clause, localFixture(clause.clause_id))
 
     const parsed = ExtractedClauseSchema.safeParse(await res.json())
-    if (!parsed.success) return localFixture(clause.clause_id)
+    if (!parsed.success) return checkedAgainst(clause, localFixture(clause.clause_id))
 
     const header = res.headers.get('x-extraction-fallback')
     const fallback_reason =
@@ -102,14 +114,19 @@ export async function requestExtraction(
       upstream_ms: count('x-extraction-ms'),
       rejection: res.headers.get('x-extraction-rejection'),
     }
-    return { clause: parsed.data, fallback_reason, diagnostics }
+    return checkedAgainst(clause, { clause: parsed.data, fallback_reason, diagnostics })
   } catch {
-    return localFixture(clause.clause_id)
+    return checkedAgainst(clause, localFixture(clause.clause_id))
   }
 }
 
 /** One honest sentence about where the extraction on screen came from. */
 export function sourceDetail(e: Extraction): string {
+  if (e.other_text) return `${cachedDetail(e)} It was recorded from the sample agreement, and this clause reads differently in the file in this packet, so these terms do not describe this file. Only a live extraction can.`
+  return cachedDetail(e)
+}
+
+function cachedDetail(e: Extraction): string {
   if (e.clause.extraction_source === 'nemotron') {
     return `Extracted live by ${e.clause.model ?? 'Nemotron'} during this session.`
   }

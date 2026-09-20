@@ -5,6 +5,7 @@ import { AgreementPane } from '@/components/dryrun/AgreementPane'
 import { DemoDrawer } from '@/components/dryrun/DemoDrawer'
 import { FindingCard } from '@/components/dryrun/FindingCard'
 import { FitColumn } from '@/components/dryrun/FitColumn'
+import { IntakePanel } from '@/components/dryrun/IntakePanel'
 import { ACT_ONE, cardPlan, revealed, sweeping } from '@/components/dryrun/reveal'
 import { changelogEntry } from '@/components/results/GraphVersion'
 import { paragraphAnchor } from '@/components/workspace/DocumentViewer'
@@ -14,8 +15,10 @@ import { TRANSACTION_TIME, agreement, capabilityGraph, capabilityGraphs } from '
 import { applyRepairs } from '@/domain/repair'
 import { buildComparisonPacket } from '@/documents/bundle'
 import { evidenceForCheck, type EvidencePassage } from '@/documents/citations'
+import { checkIntake, rememberIntake, rememberedIntake, sampleIntakeFiles, type IntakeFile } from '@/documents/intake'
 import { locateTerm } from '@/documents/locate'
 import { extractionFor, type Extraction } from '@/lib/extractClient'
+import { readIntakeFile } from '@/lib/dropFiles'
 import { countDecisions, ms, seconds } from '@/lib/runFormat'
 import { useReviewSession } from '@/lib/session'
 import { decisivePath, firstResult, timedEvaluate, useAgreementReview, type Evaluated } from '@/lib/useAgreementReview'
@@ -62,7 +65,10 @@ export function Dryrun() {
   // When Run was pressed. A run this page load already finished is shown whole: there is nothing left to reveal.
   const [startedAt, setStartedAt] = useState<number | null>(ranThisLoad ? -Infinity : null)
   const started = startedAt !== null
-  const run = useAgreementReview(version, started)
+  // What the analyst handed over. The run reads these files and no others: until they make a whole packet, nothing is read.
+  const [files, setFiles] = useState<IntakeFile[]>(rememberedIntake)
+  const intake = useMemo(() => checkIntake(files, version), [files, version])
+  const run = useAgreementReview(version, started, intake.ready ? files : null)
   const { packet, citations } = run
   // Findings follow the document, not the fixture's listing order.
   const clauses = useMemo(() => [...run.clauses].sort((a, b) => a.clause.start - b.clause.start), [run.clauses])
@@ -82,6 +88,22 @@ export function Dryrun() {
   const [copied, setCopied] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const closeDrawer = useCallback(() => setDrawer(false), [])
+
+  useEffect(() => rememberIntake(files), [files])
+  // A registry switch can ask for a policy that was never handed over. The run goes back to intake and names it.
+  useEffect(() => {
+    if (!started || intake.ready) return
+    ranThisLoad = false
+    setStartedAt(null)
+  }, [started, intake.ready])
+
+  const addFiles = useCallback((list: File[]) => {
+    if (list.length === 0) return
+    void Promise.all(list.map(readIntakeFile)).then((incoming) =>
+      // A file handed over again replaces the one with its name. Sample files never sit beside dropped ones.
+      setFiles((prev) => [...prev.filter((p) => p.source === 'dropped' && !incoming.some((f) => f.file === p.file)), ...incoming]),
+    )
+  }, [])
 
   // A response lands when the hook hands it over. Its reveal starts then, or after act one, whichever is later.
   useEffect(() => {
@@ -178,7 +200,11 @@ export function Dryrun() {
     setLanded({})
     setNow(at)
     setStartedAt(at)
-    // Act one happens in Article II, so that is where the document goes.
+  }
+  // Act one happens in Article II, so that is where the document goes. The agreement is only
+  // on screen once the run has started, so this waits for that render.
+  useEffect(() => {
+    if (startedAt === null || !Number.isFinite(startedAt)) return
     const first = clauses[0]
     const pane = document.querySelector('[data-scroll="document"]')
     const target = first && packet && document.getElementById(paragraphAnchor(packet.agreement.meta.document_id, first.clause.start))
@@ -186,7 +212,8 @@ export function Dryrun() {
       const top = pane.scrollTop + target.getBoundingClientRect().top - pane.getBoundingClientRect().top - 96
       pane.scrollTo({ top, behavior: still ? 'auto' : 'smooth' })
     }
-  }
+    // Once per run: the clauses are already read when Run is pressed.
+  }, [startedAt])
   const start = begin
   const runAgain = () => {
     reset()
@@ -278,6 +305,10 @@ export function Dryrun() {
       product: 'Dryrun',
       notice: `${agreement.disclaimer} ${graph.disclaimer}`,
       agreement: { document_id: packet.agreement.meta.document_id, version: packet.agreement.meta.version, sha256: packet.agreement.sha256 },
+      packet: {
+        source: intake.source === 'sample' ? 'sample packet bundled with the app' : 'files handed over by the analyst',
+        documents: packet.documents.map((d) => ({ file: d.file, document_id: d.meta.document_id, version: d.meta.version, sha256: d.sha256 })),
+      },
       registry_version: version,
       transaction_time: TRANSACTION_TIME,
       decision: mostSevere(decided),
@@ -299,10 +330,103 @@ export function Dryrun() {
     download(`dryrun-record.registry-v${version}.json`, JSON.stringify(record, null, 2), 'application/json')
   }
 
-  if (run.readError) {
-    return <p className="m-6 rounded border border-fail-rule bg-fail-soft px-4 py-3 text-sm text-fail">The document packet could not be read: {run.readError}</p>
+  const demoDrawer = (diagnostics: string | null) =>
+    drawer && (
+        <DemoDrawer
+          version={version}
+          clauses={clauses}
+          diagnostics={diagnostics}
+          copied={copied}
+          busy={busy}
+          onClose={closeDrawer}
+          onVersion={switchVersion}
+          onCopyPacket={copyPacket}
+          onDownloadPacket={() => download(`dryrun-chat-packet.registry-v${version}.txt`, chatPacket(), 'text/plain')}
+          onChallenge={() => void withSubmission('/results#challenge-title')}
+          onWatchRun={() => navigate(`/run/${currentClauseId}${version === BASE_VERSION ? '' : `?v=${version}`}`)}
+          onTechnical={() => void withSubmission('/results')}
+          onWorkspace={() => navigate(`/workspace${version === BASE_VERSION ? '' : `?v=${version}`}`)}
+          onRetryLive={(clauseId) => {
+            // New terms invalidate a re-test of the old ones.
+            setRetests(({ [clauseId]: _stale, ...rest }) => rest)
+            setApplied(({ [clauseId]: _then, ...rest }) => rest)
+            setAskedAgain((a) => ({ ...a, [clauseId]: performance.now() }))
+            setNow(performance.now())
+            if (focus?.clauseId === clauseId) setFocus(null)
+            run.retryLive(clauseId)
+          }}
+        />
+    )
+  const footer = (
+      <footer className="flex shrink-0 items-center gap-4 border-t border-rule bg-sheet px-5 py-1.5 text-xs text-ink-faint">
+        <p className="min-w-0 truncate" title={`${agreement.disclaimer} ${capabilityGraph.disclaimer}`}>
+          <span className="font-semibold text-ink-soft">Synthetic data</span> built for a hackathon demonstration. Not a real credit agreement, not
+          any real bank's operations, and not legal or financial advice.
+        </p>
+        <button
+          type="button"
+          data-control="export"
+          disabled={!done}
+          title={done ? 'Download the replay record of this run as JSON' : 'Run a dry run first'}
+          onClick={exportRecord}
+          className="ml-auto shrink-0 text-ink-soft underline underline-offset-2 hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint disabled:no-underline"
+        >
+          Export record
+        </button>
+      </footer>
+  )
+
+  // Before a run, and whenever the files on hand do not make a packet, the screen is the intake.
+  // A packet the reader refuses is said here, by its reason, instead of blanking the product.
+  if (!started || !packet || !citations || !doc) {
+    const canRun = intake.ready && packet !== null && !run.readError
+    return (
+      <div className="flex h-dvh flex-col overflow-hidden bg-paper">
+        <header className="flex shrink-0 items-center gap-4 border-b border-rule bg-sheet px-5 py-2.5">
+          <p className="flex items-baseline gap-2.5 whitespace-nowrap">
+            <span className="text-[0.95rem] font-semibold tracking-tight">Dryrun</span>
+            <span className="text-xs text-ink-faint">Dry-run the loan before you sign.</span>
+          </p>
+          <div className="ml-auto flex items-center gap-4 whitespace-nowrap">
+            <button
+              type="button"
+              data-control="run"
+              disabled={!canRun}
+              title={canRun ? undefined : 'Hand over the agreement and every policy this registry version needs first'}
+              onClick={start}
+              className="rounded-md bg-ink px-4 py-1.5 text-sm font-semibold text-sheet hover:bg-ink-soft disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-faint"
+            >
+              Run dry run
+            </button>
+            <p data-testid="registry-label" className="text-xs text-ink-faint">
+              Registry v{version}
+              {citations ? ` · ${citations.verified}/${citations.verified + citations.mismatched} citations verified` : ''}
+            </p>
+            <button
+              type="button"
+              data-control="demo"
+              aria-haspopup="dialog"
+              onClick={() => setDrawer(true)}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink-soft hover:bg-rule-soft hover:text-ink"
+            >
+              <FlaskConical aria-hidden className="size-4" />
+              Demo tools
+            </button>
+          </div>
+        </header>
+        <IntakePanel
+          intake={intake}
+          readError={run.readError}
+          onFiles={addFiles}
+          onSample={() => setFiles(sampleIntakeFiles())}
+          onRemove={(file) => setFiles((prev) => prev.filter((f) => f.file !== file))}
+          onClear={() => setFiles([])}
+        />
+        {footer}
+        {demoDrawer(null)}
+      </div>
+    )
   }
-  if (!packet || !citations || !doc) return null
 
   const extracted = clauses.filter((c) => c.extraction)
   const live = extracted.filter((c) => c.extraction!.clause.extraction_source === 'nemotron').length
@@ -371,6 +495,10 @@ export function Dryrun() {
             </p>
           )}
           <p data-testid="registry-label" className="text-xs text-ink-faint">
+            <span data-testid="packet-source" className={intake.source === 'sample' ? 'font-semibold text-accent' : undefined}>
+              {intake.source === 'sample' ? 'Sample packet' : `${packet.documents.length} files handed over`}
+            </span>
+            {' · '}
             Registry {entry ? `${entry[1]} · ${entry[2]}` : `v${version}`} · {citations.verified}/{citations.verified + citations.mismatched} citations verified
           </p>
           <button
@@ -457,49 +585,9 @@ export function Dryrun() {
         </aside>
       </main>
 
-      <footer className="flex shrink-0 items-center gap-4 border-t border-rule bg-sheet px-5 py-1.5 text-xs text-ink-faint">
-        <p className="min-w-0 truncate" title={`${agreement.disclaimer} ${capabilityGraph.disclaimer}`}>
-          <span className="font-semibold text-ink-soft">Synthetic data</span> built for a hackathon demonstration. Not a real credit agreement, not
-          any real bank's operations, and not legal or financial advice.
-        </p>
-        <button
-          type="button"
-          data-control="export"
-          disabled={!done}
-          title={done ? 'Download the replay record of this run as JSON' : 'Run a dry run first'}
-          onClick={exportRecord}
-          className="ml-auto shrink-0 text-ink-soft underline underline-offset-2 hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint disabled:no-underline"
-        >
-          Export record
-        </button>
-      </footer>
+      {footer}
 
-      {drawer && (
-        <DemoDrawer
-          version={version}
-          clauses={clauses}
-          diagnostics={diagnostics}
-          copied={copied}
-          busy={busy}
-          onClose={closeDrawer}
-          onVersion={switchVersion}
-          onCopyPacket={copyPacket}
-          onDownloadPacket={() => download(`dryrun-chat-packet.registry-v${version}.txt`, chatPacket(), 'text/plain')}
-          onChallenge={() => void withSubmission('/results#challenge-title')}
-          onWatchRun={() => navigate(`/run/${currentClauseId}${version === BASE_VERSION ? '' : `?v=${version}`}`)}
-          onTechnical={() => void withSubmission('/results')}
-          onWorkspace={() => navigate(`/workspace${version === BASE_VERSION ? '' : `?v=${version}`}`)}
-          onRetryLive={(clauseId) => {
-            // New terms invalidate a re-test of the old ones.
-            setRetests(({ [clauseId]: _stale, ...rest }) => rest)
-            setApplied(({ [clauseId]: _then, ...rest }) => rest)
-            setAskedAgain((a) => ({ ...a, [clauseId]: performance.now() }))
-            setNow(performance.now())
-            if (focus?.clauseId === clauseId) setFocus(null)
-            run.retryLive(clauseId)
-          }}
-        />
-      )}
+      {demoDrawer(diagnostics)}
     </div>
   )
 }

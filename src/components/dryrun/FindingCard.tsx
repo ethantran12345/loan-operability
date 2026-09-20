@@ -281,9 +281,12 @@ function LandedCard({
           <span
             data-testid="source-badge"
             title={`${sourceDetail(extraction!)}${review.reused ? ' This session had already asked for this clause; the time is the model call the server measured.' : ''}`}
-            className={cn('ml-auto rounded-full border px-2 py-0 text-[0.68rem] font-semibold whitespace-nowrap', live ? 'border-accent/25 bg-accent-soft text-accent' : 'border-rule bg-rule-soft text-ink-soft')}
+            className={cn(
+              'ml-auto rounded-full border px-2 py-0 text-[0.68rem] font-semibold whitespace-nowrap',
+              live ? 'border-accent/25 bg-accent-soft text-accent' : extraction!.other_text ? 'border-fail-rule bg-fail-soft text-fail' : 'border-rule bg-rule-soft text-ink-soft',
+            )}
           >
-            {live ? `Live Nemotron${upstream ? ` · ${seconds(upstream)}` : ''}` : 'Cached fixture'}
+            {live ? `Live Nemotron${upstream ? ` · ${seconds(upstream)}` : ''}` : extraction!.other_text ? 'Cached · not this text' : 'Cached fixture'}
           </span>
           <ChevronRight aria-hidden className={cn('size-4 shrink-0 text-ink-faint transition-transform', expanded && 'rotate-90', !ready && 'invisible')} />
         </span>

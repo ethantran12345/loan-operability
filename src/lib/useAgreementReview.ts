@@ -4,7 +4,7 @@ import { TRANSACTION_TIME, capabilityGraphs } from '@/domain/fixtures'
 import { proposeRepairs, type RepairPlan } from '@/domain/repair'
 import type { CandidatePath, CapabilityGraph, EvaluationReport, ExtractedClause, RequirementResult } from '@/domain/types'
 import { verifyCitations, type CitationIndex } from '@/documents/citations'
-import { readPacket, type Packet, type ScopedClause } from '@/documents/packet'
+import { readPacket, readPacketFrom, type Packet, type PacketFile, type ScopedClause } from '@/documents/packet'
 import { extractionFor, type Extraction } from './extractClient'
 
 /** One real evaluation: its inputs, its report, and how long `evaluate()` took. */
@@ -65,8 +65,10 @@ interface Settled {
  * state is derived from the work itself; nothing is paced or simulated.
  * With `enabled` false the packet is read (so the agreement can be shown) but
  * no clause is extracted until the caller turns it on.
+ * `files` is the packet the analyst handed over. Null means nothing readable has
+ * been handed over yet, so nothing is read. Left out, the bundled sample is read.
  */
-export function useAgreementReview(version: number, enabled = true): ReviewRun {
+export function useAgreementReview(version: number, enabled = true, files?: PacketFile[] | null): ReviewRun {
   const [run, setRun] = useState(0)
   const [read, setRead] = useState<{ packet: Packet; citations: CitationIndex } | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
@@ -77,19 +79,24 @@ export function useAgreementReview(version: number, enabled = true): ReviewRun {
   // 1. Read documents. Re-read when the registry version changes, because the
   // policy packet in force changes with it.
   useEffect(() => {
+    if (files === null) {
+      setRead(null)
+      setReadError(null)
+      return
+    }
     try {
-      const packet = readPacket(version)
+      const packet = files ? readPacketFrom(files, version) : readPacket(version)
       setRead({ packet, citations: verifyCitations(graph, packet.policies) })
       setReadError(null)
     } catch (err) {
       setRead(null)
       setReadError((err as Error).message)
     }
-  }, [version, graph, run])
+  }, [version, graph, run, files])
 
   // 2. Extract terms: once per run, not per registry version.
   const clauses = read?.packet.clauses
-  const clauseKey = clauses?.map((c) => `${c.clause_id}:${c.source_text.length}`).join('|') ?? ''
+  const clauseKey = clauses ? `${read.packet.agreement.sha256}|${clauses.map((c) => c.clause_id).join('|')}` : ''
   useEffect(() => {
     if (!clauses || !enabled) return
     let current = true

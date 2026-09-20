@@ -16,6 +16,7 @@ import { locateTerm } from '@/documents/locate'
 import { cn } from '@/lib/cn'
 import { ms } from '@/lib/runFormat'
 import { useReviewSession } from '@/lib/session'
+import { checkIntake, rememberedIntake } from '@/documents/intake'
 import { decisivePath, firstResult, timedEvaluate, useAgreementReview } from '@/lib/useAgreementReview'
 
 const BASE_VERSION = capabilityGraph.version
@@ -30,7 +31,13 @@ export function Workspace() {
   const graph = capabilityGraphs[version]!
   const otherVersion = GRAPH_VERSIONS.find((v) => v !== version) ?? null
 
-  const run = useAgreementReview(version)
+  // The workspace shows the packet the analyst handed over on the product screen, when that is a whole
+  // packet for this registry version. Opened on its own, it reads the bundled sample, as it always has.
+  const handedOver = useMemo(() => {
+    const files = rememberedIntake()
+    return files.length > 0 && checkIntake(files, version).ready ? files : undefined
+  }, [version])
+  const run = useAgreementReview(version, true, handedOver)
   const { packet, citations, clauses } = run
 
   const [documentId, setDocumentId] = useState<string | null>(null)

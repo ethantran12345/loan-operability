@@ -2,6 +2,25 @@ import { Check, FileText, Landmark, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { SUPPORTED_FORMAT, UNSUPPORTED_FORMATS, changedBetweenVersions, type Packet, type PacketDocument } from '@/documents/packet'
 import type { CitationIndex } from '@/documents/citations'
+import type { DocumentKind } from '@/documents/parse'
+import type { ReactNode } from 'react'
+
+export const versionLabel = (version: string) => (/^\d/.test(version) ? `v${version}` : version)
+
+/** One document in a tray: icon, title, identity, then whatever is known about it. Shared with the intake tray. */
+export function DocumentRow({ kind, title, identity, muted = false, children }: { kind: DocumentKind; title: string; identity: string; muted?: boolean; children?: ReactNode }) {
+  const Icon = kind === 'agreement' ? FileText : Landmark
+  return (
+    <span className="flex items-start gap-2">
+      <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-faint" />
+      <span className="min-w-0">
+        <span className={cn('block text-[0.8rem] leading-snug font-semibold', muted ? 'text-ink-soft' : 'text-ink')}>{title}</span>
+        <span className="mt-0.5 block font-mono text-[0.68rem] text-ink-faint">{identity}</span>
+        {children}
+      </span>
+    </span>
+  )
+}
 
 function citedRecords(doc: PacketDocument, citations: CitationIndex | null) {
   if (!citations) return { total: 0, verified: 0 }
@@ -30,7 +49,6 @@ export function DocumentTray({
     const cited = citedRecords(doc, citations)
     const changed = otherVersion !== null && changedBetweenVersions(doc, otherVersion)
     const isAgreement = doc.meta.kind === 'agreement'
-    const Icon = isAgreement ? FileText : Landmark
     return (
       <li key={doc.file}>
         <button
@@ -42,33 +60,26 @@ export function DocumentTray({
             active ? 'border-accent/50 bg-accent-soft' : 'border-transparent hover:bg-rule-soft',
           )}
         >
-          <span className="flex items-start gap-2">
-            <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-faint" />
-            <span className="min-w-0">
-              <span className="block text-[0.8rem] leading-snug font-semibold text-ink">{doc.meta.title}</span>
-              <span className="mt-0.5 block font-mono text-[0.68rem] text-ink-faint">
-                {doc.meta.document_id} · {/^\d/.test(doc.meta.version) ? `v${doc.meta.version}` : doc.meta.version}
+          <DocumentRow kind={doc.meta.kind} title={doc.meta.title} identity={`${doc.meta.document_id} · ${versionLabel(doc.meta.version)}`}>
+            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.7rem] text-ink-soft">
+              <span className="inline-flex items-center gap-1">
+                <Check aria-hidden className="size-3 text-pass" />
+                Read · {doc.pages} {doc.pages === 1 ? 'page' : 'pages'} · {doc.paragraph_count} paragraphs
               </span>
-              <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.7rem] text-ink-soft">
-                <span className="inline-flex items-center gap-1">
-                  <Check aria-hidden className="size-3 text-pass" />
-                  Read · {doc.pages} {doc.pages === 1 ? 'page' : 'pages'} · {doc.paragraph_count} paragraphs
+              {isAgreement && extracting > 0 && (
+                <span className="inline-flex items-center gap-1 text-accent">
+                  <Loader2 aria-hidden className="size-3 animate-spin" />
+                  extracting {extracting}
                 </span>
-                {isAgreement && extracting > 0 && (
-                  <span className="inline-flex items-center gap-1 text-accent">
-                    <Loader2 aria-hidden className="size-3 animate-spin" />
-                    extracting {extracting}
-                  </span>
-                )}
-                {!isAgreement && cited.total > 0 && (
-                  <span title="Registry records whose values were found verbatim in this document">
-                    {cited.verified}/{cited.total} registry records verified
-                  </span>
-                )}
-                {changed && <span className="rounded bg-manual-soft px-1 font-semibold text-manual">differs in registry v{otherVersion}</span>}
-              </span>
+              )}
+              {!isAgreement && cited.total > 0 && (
+                <span title="Registry records whose values were found verbatim in this document">
+                  {cited.verified}/{cited.total} registry records verified
+                </span>
+              )}
+              {changed && <span className="rounded bg-manual-soft px-1 font-semibold text-manual">differs in registry v{otherVersion}</span>}
             </span>
-          </span>
+          </DocumentRow>
         </button>
       </li>
     )
