@@ -192,6 +192,12 @@ export function Dryrun() {
     // The sweep is on the clause itself, so the document shows that clause as its response lands.
     if (following.endsWith('|0')) document.querySelector(`[data-sweep="${id}"]`)?.parentElement?.scrollIntoView({ block: 'nearest', behavior })
   }, [following, still])
+  // A re-check under other bank capabilities replays the open card, and its panel waits for the new verdict.
+  // When the panel is back, so is its top slot: that is where the answer to the re-check is.
+  const openReady = expandedId !== null && cards.some((c) => c.id === expandedId && c.ready)
+  useEffect(() => {
+    if (expandedId && openReady) cardToTop(expandedId)
+  }, [expandedId, openReady])
   const playing = started && (cards.length === 0 || cards.some((c) => !c.settled))
   useEffect(() => {
     if (!playing) return
@@ -604,6 +610,7 @@ export function Dryrun() {
                     onToggle={() => selectClause(id, 'card')}
                     onHover={(over) => setHoveredId((h) => (over ? id : h === id ? null : h))}
                     onApply={() => applyFix(id)}
+                    onSwitchVersion={switchVersion}
                     onOpenProcedure={(checkIndex, passage) => {
                       setFocus({ clauseId: id, checkIndex })
                       setProcedure(passage)

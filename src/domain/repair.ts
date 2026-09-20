@@ -59,7 +59,7 @@ export interface RepairPlan {
 }
 
 /** Fields whose only resolution is a human step, not a drafting change. */
-const HUMAN_ONLY = new Set(['capability.outcome', 'approval', 'evidence.freshness', 'manual_path.sla'])
+export const HUMAN_ONLY = new Set(['capability.outcome', 'approval', 'evidence.freshness', 'manual_path.sla'])
 
 const money = (n: number, unit = '') =>
   `${unit ? unit + ' ' : ''}${n.toLocaleString('en-US')}`

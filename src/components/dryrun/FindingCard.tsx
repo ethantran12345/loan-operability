@@ -4,14 +4,17 @@ import { Elapsed, PathSearch, Typewriter } from '@/components/run/parts'
 import { Id } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Marked, type MarkTone } from '@/components/workspace/Marked'
-import { evidenceForCheck, type CitationIndex, type EvidencePassage, type Span } from '@/documents/citations'
+import { GRAPH_VERSIONS, changelogEntry } from '@/components/results/GraphVersion'
+import { evidenceForCheck, longDate, type CitationIndex, type EvidencePassage, type Span } from '@/documents/citations'
 import { diffWording, locateTerm, type WordingSide } from '@/documents/locate'
+import { TRANSACTION_TIME, capabilityGraphs } from '@/domain/fixtures'
 import type { RepairProposal } from '@/domain/repair'
 import type { CapabilityGraph, CheckResult } from '@/domain/types'
 import { cn } from '@/lib/cn'
-import { OUTCOME_HEADLINE, bankSide, fieldLabel, findingTitle, nextAction, requiredSide } from '@/lib/findingText'
+import { OUTCOME_HEADLINE, bankSide, fieldLabel, findingTitle, requiredSide } from '@/lib/findingText'
+import { isOperational, resolutionFor, type Resolution } from '@/lib/resolution'
 import { sourceDetail } from '@/lib/extractClient'
-import { seconds } from '@/lib/runFormat'
+import { seconds, shortDate } from '@/lib/runFormat'
 import { decisivePath, firstResult, type ClauseReview, type Evaluated } from '@/lib/useAgreementReview'
 import { VerdictPill } from './AgreementPane'
 import { cardPlan, revealed, routesCounted, type ChipChange, type ChipMark, type TermChip } from './reveal'
@@ -140,6 +143,83 @@ function WordingDiffs({ clauseText, proposals }: { clauseText: string; proposals
   )
 }
 
+const SLOT_LABEL = 'text-xs font-semibold'
+const OPERATIONAL_TAG = 'rounded-full border border-rule bg-rule-soft px-2 py-0 text-[0.68rem] font-semibold whitespace-nowrap text-ink-soft'
+
+/**
+ * The top slot of a finding no redraft can fix: what does resolve it, called what it is.
+ * A lapsed authority is the bank's state to change; a human step is a person's to take. Neither is wording.
+ */
+function OperationalFix({ resolution, requirement, onSwitchVersion }: {
+  resolution: Exclude<Resolution, { kind: 'redraft' }>
+  requirement: Parameters<typeof findingTitle>[1]
+  onSwitchVersion: (version: number) => void
+}) {
+  if (resolution.kind === 'escalate') return <p data-testid="next-action" className="text-sm">{resolution.action}</p>
+
+  if (resolution.kind === 'person') {
+    return (
+      <div data-testid="resolution" data-resolution="person">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={SLOT_LABEL}>Resolution · a person's step</span>
+          <span className={cn(OPERATIONAL_TAG, 'ml-auto')}>Operational, not a redraft</span>
+        </p>
+        <ul className="mt-1.5 space-y-1">
+          {resolution.steps.map((step, i) => (
+            <li key={i} data-step className="text-sm leading-snug text-pretty">
+              <span className="font-semibold">{step.text.charAt(0).toUpperCase() + step.text.slice(1)}</span>
+              <span className="text-ink-soft">
+                {step.owner && ` · ${step.owner}`}
+                {step.sla_business_days != null && ` · ${step.sla_business_days} business ${step.sla_business_days === 1 ? 'day' : 'days'}`}
+              </span>
+              {step.lapsed_under && (
+                <span className="block text-xs text-ink-soft">
+                  This authority is in force under the bank capabilities tested here. Under v{step.lapsed_under.version} it expired {longDate(step.lapsed_under.expired)}, and the clause failed.
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p data-testid="next-action" className="mt-2 text-sm">{resolution.action}</p>
+      </div>
+    )
+  }
+
+  const { lapsed, demonstration: demo } = resolution
+  const entry = demo && changelogEntry(capabilityGraphs[demo.version]!)
+  const dated = entry?.label.match(/^(v\d+) \((.+)\)$/)
+  return (
+    <div data-testid="resolution" data-resolution="bank_state">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className={SLOT_LABEL}>Resolution · the bank's approved state</span>
+        <span className={cn(OPERATIONAL_TAG, 'ml-auto')}>Operational, not a redraft</span>
+      </p>
+      {lapsed.map((a) => (
+        <p key={a.approval_id} data-lapsed={a.approval_id} className="mt-1.5 text-sm leading-snug text-pretty">
+          {a.document_id ? `${a.document_id}'s delegated ${a.role} authority` : `The delegated ${a.role} authority`} (<Id>{a.approval_id}</Id>) expired{' '}
+          <span className="font-semibold">{a.expired}</span>. Renewing it resolves this.
+        </p>
+      ))}
+      <p data-testid="next-action" className="mt-1 text-sm text-ink-soft">{resolution.action}</p>
+      {demo && GRAPH_VERSIONS.includes(demo.version) && (
+        <div data-testid="bank-state-demo" className="mt-2.5 rounded-md border border-rule bg-paper/60 px-3 py-2">
+          <p className="text-xs leading-snug text-pretty text-ink-soft">
+            <span className="font-semibold text-ink">Demonstration.</span> Bank capabilities {dated ? `${dated[1]} (${shortDate(dated[2]!)})` : `v${demo.version}`} record the renewal, in force from{' '}
+            {longDate(demo.effective_from)}. Switching changes the bank's approved state. It does not fix the contract: the agreement is unchanged, and no wording is proposed.
+          </p>
+          <p data-testid="demo-outcome" className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-snug text-ink-soft">
+            The same clause under v{demo.version}: <VerdictPill decision={demo.decision} arrive={false} />
+            {demo.remaining.length > 0 && <span>{demo.remaining.map((k) => findingTitle(k, requirement).toLowerCase()).join(', ')}</span>}
+          </p>
+          <Button variant="secondary" data-control="switch-capabilities" className="mt-2 min-h-8 px-3 text-xs" onClick={() => onSwitchVersion(demo.version)}>
+            Change the bank's approved state to v{demo.version} and re-check
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Where a card is in its reveal. Times are real; only the reveal of finished work is paced. */
 export interface CardPacing {
   /** ms since this card's response landed and its reveal began. null: still waiting on the model. */
@@ -247,6 +327,8 @@ interface FindingCardProps {
   /** The cursor or keyboard focus arrived on, or left, this card. */
   onHover: (over: boolean) => void
   onApply: () => void
+  /** Re-check the same terms against another bank capabilities version. Changes the bank's state, never the contract. */
+  onSwitchVersion: (version: number) => void
   onOpenProcedure: (checkIndex: number, passage: EvidencePassage) => void
   pacing: CardPacing
 }
@@ -268,6 +350,7 @@ function LandedCard({
   onToggle,
   onHover,
   onApply,
+  onSwitchVersion,
   onOpenProcedure,
   pacing,
   t,
@@ -287,6 +370,9 @@ function LandedCard({
   const alsoOpen = indexed.filter((x) => x.check.verdict !== 'PASS' && x.check.verdict !== decision)
   const left = retest ? (decisivePath(retest)?.checks ?? []).filter((k) => k.verdict !== 'PASS') : []
   const hasFix = plan !== null && plan.proposals.length > 0
+  const resolution = plan ? resolutionFor({ evaluated, otherVersion: review.otherVersion, plan }, citations, TRANSACTION_TIME) : null
+  // What a redraft cannot clear, said beside the redraft, so the redraft is never read as clearing it.
+  const beyondWording = hasFix ? checks.filter((k) => k.verdict !== 'PASS' && isOperational(k)) : []
 
   // The reveal. Everything below is finished work; `t` only decides how much of it is on screen yet.
   const { chips, marks, route, retry, line, repair } = cardPlan(review, retest, pacing.still)
@@ -384,7 +470,8 @@ function LandedCard({
         </span>
       </button>
 
-      {expanded && (
+      {/* A re-check under other bank capabilities replays the card. The panel waits for the verdict it explains. */}
+      {expanded && ready && (
         <div className="space-y-5 border-t border-rule-soft px-5 pt-4 pb-5">
           {/* What to do comes first. The button, then its outcome, sit in one slot at the top of the panel. */}
           {hasFix ? (
@@ -407,9 +494,14 @@ function LandedCard({
               </div>
               <WordingDiffs clauseText={clause.source_text} proposals={plan.proposals} />
               {!retest && <p className="mt-2 text-xs text-ink-faint">Suggested drafting from the bank's verified limits. Not approval.</p>}
+              {beyondWording.length > 0 && (
+                <p data-testid="beyond-wording" className="mt-2 text-xs text-ink-soft">
+                  No redraft clears {beyondWording.map((k) => findingTitle(k, requirement).toLowerCase()).join(', ')}. That is operational, not wording.
+                </p>
+              )}
             </div>
           ) : (
-            decision !== 'PASS' && plan && <p data-testid="next-action" className="text-sm">{nextAction(result, plan)}</p>
+            resolution && resolution.kind !== 'redraft' && <OperationalFix resolution={resolution} requirement={requirement} onSwitchVersion={onSwitchVersion} />
           )}
 
           {conflicts.length === 0 ? (
