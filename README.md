@@ -1,8 +1,53 @@
 # Dryrun — dry-run the loan before you sign
 
+Dryrun checks a draft loan agreement, clause by clause, against what the bank
+can actually do, and says `PASS`, `MANUAL` or `FAIL` before anyone signs.
+
+**Demo video:** TODO — link goes here
+
 **Live demo:** https://loan-operability.vercel.app
 
 **Source:** https://github.com/ethantran12345/loan-operability
+
+**The problem.** A bank negotiates a bespoke loan clause with a borrower: "up to
+EUR 40 million, same day, if you tell us by 11:00 A.M." Nobody knows until late
+whether the bank's own systems, cutoff times, booking entities and approvals can
+actually deliver what the clause promises. Finding out after signing, when the
+borrower asks for the money, is expensive.
+
+[![Dryrun flow: the analyst adds the draft agreement, Nemotron reads each clause, and the deterministic engine tests it against the bank's capability graph and returns a verdict with one of three answers](docs/flow-diagram.png)](docs/flow-diagram.png)
+
+*One clause, end to end: the model reads the clause, the graph decides whether the bank can do it.*
+
+## See it work in 60 seconds
+
+1. Open the [live demo](https://loan-operability.vercel.app).
+2. Click **Load the sample agreement**, then **Run dry run**.
+3. Four cards come back, one per borrowing clause: `FAIL`, `MANUAL`, `PASS`,
+   `FAIL`, each labelled `Live Nemotron` or `Cached`.
+4. Open §2.03(a) and press **Apply and re-test**: the redraft returns `PASS`.
+5. Open §2.03(c) and press **Change the bank's approved state to v8 and
+   re-check**: the same clause moves from `FAIL` to `MANUAL`.
+
+## What works, and what doesn't
+
+**Runs today.** The live app reads a draft agreement, Nemotron turns each
+borrowing clause into typed terms, and code with no model call tests them
+against the bank's limits: 32 routes for a same-day draw, 14 checks on each,
+224 tests. Every finding shows the agreement's words beside the bank's policy
+and says what to do.
+
+**The real limits.**
+
+- Synthetic data only. The bank, the agreement and the policies are invented.
+- One input format: the `.md` packet layout. No PDF, no Word, no scans.
+- Four clauses in scope, named by hand. It does not find risky clauses for you.
+- Free-tier model access. It rate-limits, and the app then falls back to a
+  cached extraction, labelled `Cached` on the card.
+- No validation against real practitioner review. Nobody who does this work at
+  a bank has checked the bank model or the verdicts.
+
+---
 
 ## What this is
 
@@ -32,10 +77,6 @@ signing, when the borrower asks for the money.
 The facts needed to check it are spread across operations procedures and an
 approvals register that the people drafting the clause do not read. Dryrun puts
 the check at the drafting stage, one clause at a time.
-
-[![Dryrun flow: the analyst adds the draft agreement, Nemotron reads each clause, and the deterministic engine tests it against the bank's capability graph and returns a verdict with one of three answers](docs/flow-diagram.png)](docs/flow-diagram.png)
-
-*One clause, end to end: the model reads the clause, the graph decides whether the bank can do it.*
 
 ## Try it in 60 seconds
 
