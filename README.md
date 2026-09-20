@@ -22,6 +22,10 @@ re-test of the redrafted terms.
 All bank data in this repository is synthetic. Nothing here describes any real
 institution's operations, and nothing here is legal or financial advice.
 
+![Dryrun flow: the analyst adds the draft agreement, Nemotron reads each clause, and the deterministic engine tests it against the bank's capability graph and returns a verdict with one of three answers](docs/flow-diagram.png)
+
+*One clause, end to end: the model reads the clause, the graph decides whether the bank can do it.*
+
 ## Status
 
 | Phase | State |

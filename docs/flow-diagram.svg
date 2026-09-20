@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="760" viewBox="0 0 1560 760" font-family="Carlito, DejaVu Sans, sans-serif">
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+  <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#17694a"/></marker>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#94540a"/></marker>
+</defs>
+<style>
+ .grp{fill:#f5f7fa;stroke:#d8dee8;stroke-width:1.5;rx:10}
+ .grpt{font-size:19px;font-weight:700;fill:#475569;letter-spacing:1.2px}
+ .n{fill:#dfe7f2;stroke:#2f4a73;stroke-width:1.5;rx:7}
+ .nt{font-size:16px;font-weight:700;fill:#0f172a;text-anchor:middle}
+ .ns{font-size:11.5px;fill:#475569;text-anchor:middle}
+ .cap{font-size:11.5px;fill:#64748b;text-anchor:middle}
+ .e{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#a)}
+ .eg{stroke:#17694a;stroke-width:2;fill:none;marker-end:url(#ag)}
+ .er{stroke:#94540a;stroke-width:2;fill:none;marker-end:url(#ar);stroke-dasharray:6 4}
+ .el{font-size:11.5px;fill:#64748b;text-anchor:middle}
+ .elb{font-size:11.5px;font-weight:700;fill:#2f4a73;text-anchor:middle}
+</style>
+<rect width="1560" height="760" fill="#ffffff"/>
+
+<!-- title -->
+<text x="40" y="38" font-size="27" font-weight="700" fill="#0f172a">Dryrun</text>
+<text x="146" y="38" font-size="15" fill="#64748b">one clause, end to end</text>
+<text x="1520" y="38" font-size="12.5" fill="#94a3b8" text-anchor="end">synthetic bank · capability graph v7</text>
+
+<!-- FRONT END -->
+<rect class="grp" x="40" y="58" width="1480" height="142"/>
+<text class="grpt" x="780" y="86" text-anchor="middle">FRONT END</text>
+<text class="cap" x="160" y="112">added by the analyst · the only input</text>
+<text class="cap" x="1210" y="112">what they see</text>
+<rect class="n" x="75" y="122" width="170" height="48"/><text class="nt" x="160" y="145">Draft agreement</text><text class="ns" x="160" y="161">parsed · SHA-256 hashed</text>
+<rect class="n" x="290" y="122" width="130" height="48"/><text class="nt" x="355" y="152">Clause</text>
+<rect class="n" x="700" y="122" width="160" height="48"/><text class="nt" x="780" y="152">Requirements</text>
+<rect class="n" x="1130" y="122" width="160" height="48"/><text class="nt" x="1210" y="152">Verdict</text>
+<rect class="n" x="1350" y="122" width="140" height="48"/><text class="nt" x="1420" y="145">What to do</text><text class="ns" x="1420" y="161">one of three answers</text>
+<path class="e" d="M247 146 L286 146"/>
+<path class="e" d="M422 146 L696 146"/>
+<path class="e" d="M862 146 L1126 146"/>
+<path class="e" d="M1292 146 L1346 146"/>
+
+<!-- BACK END -->
+<rect class="grp" x="40" y="240" width="1480" height="440"/>
+<text class="grpt" x="997" y="268" text-anchor="middle">BACK END</text>
+
+<!-- model region -->
+<rect x="60" y="285" width="590" height="262" fill="#e9eef5" stroke="#c6d2e2" stroke-width="1.5" rx="9"/>
+<text x="76" y="304" font-size="12.5" font-weight="700" fill="#2f4a73" letter-spacing=".6px">LANGUAGE · the only model call</text>
+
+<rect class="n" x="90" y="340" width="140" height="50"/><text class="nt" x="160" y="364">/api/extract</text><text class="ns" x="160" y="380">Vercel</text>
+<rect x="280" y="328" width="180" height="74" fill="#f2dc97" stroke="#c9a53d" stroke-width="2" rx="7"/>
+<text x="370" y="358" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">Nemotron</text>
+<text class="ns" x="370" y="378">NVIDIA hosted</text>
+<text x="370" y="417" font-size="10.5" fill="#475569" text-anchor="middle">nvidia/nemotron-3.5-lightning-30b-a3b</text>
+<rect class="n" x="500" y="340" width="130" height="50"/><text class="nt" x="565" y="364">Schema</text><text class="ns" x="565" y="380">must parse</text>
+<rect class="n" x="280" y="462" width="180" height="50"/><text class="nt" x="370" y="486">Fixture</text><text class="ns" x="370" y="502">labelled, not live</text>
+
+<!-- boundary -->
+<line x1="672" y1="256" x2="672" y2="648" stroke="#94a3b8" stroke-width="2.5" stroke-dasharray="9 6"/>
+<text x="672" y="668" font-size="13" font-weight="700" fill="#b42318" text-anchor="middle">no model past this line</text>
+
+<!-- deterministic nodes -->
+<rect class="n" x="710" y="340" width="150" height="50"/><text class="nt" x="785" y="364">Requirements</text><text class="ns" x="785" y="380">typed</text>
+<rect class="n" x="910" y="328" width="170" height="74"/><text class="nt" x="995" y="358">Path search</text><text class="ns" x="995" y="378">every combination</text>
+<rect x="1130" y="328" width="170" height="74" fill="#fff" stroke="#0f172a" stroke-width="2" rx="7"/>
+<text x="1195" y="356" font-size="15" font-weight="700" fill="#17694a" text-anchor="middle">PASS</text>
+<text x="1258" y="356" font-size="15" font-weight="700" fill="#94540a" text-anchor="middle">MANUAL</text>
+<text x="1215" y="382" font-size="15" font-weight="700" fill="#b42318" text-anchor="middle">FAIL</text>
+<!-- standing state: held before intake, not an input -->
+<rect x="910" y="468" width="170" height="80" fill="#eaf5ef" stroke="#17694a" stroke-width="2" rx="7"/>
+<text x="995" y="496" font-size="16" font-weight="700" fill="#0f172a" text-anchor="middle">Capability</text>
+<text x="995" y="516" font-size="16" font-weight="700" fill="#0f172a" text-anchor="middle">graph v7</text>
+<text class="ns" x="995" y="536">what the bank can do</text>
+<text x="995" y="566" font-size="11.5" font-weight="700" fill="#17694a" text-anchor="middle">standing state · already held</text>
+<text class="ns" x="995" y="581">policies and graph, in place before intake</text>
+
+<!-- three answers -->
+<rect x="1116" y="440" width="388" height="108" fill="#e9eef5" stroke="#c6d2e2" stroke-width="1.5" rx="9"/>
+<text x="1492" y="537" font-size="12.5" font-weight="700" fill="#2f4a73" letter-spacing=".6px" text-anchor="end">ONE OF THREE ANSWERS · from the graph</text>
+<rect class="n" x="1124" y="452" width="118" height="64"/><text class="nt" x="1183" y="474">Redraft</text><text class="ns" x="1183" y="492">the clause</text><text class="ns" x="1183" y="506">Apply and re-test</text>
+<rect class="n" x="1249" y="452" width="118" height="64"/><text class="nt" x="1308" y="474">Bank state</text><text class="ns" x="1308" y="492">renew expired treasury</text><text class="ns" x="1308" y="506">authority · graph v8</text>
+<rect class="n" x="1374" y="452" width="118" height="64"/><text class="nt" x="1433" y="474">A person</text><text class="ns" x="1433" y="492">has to act</text><text class="ns" x="1433" y="506">no redraft removes it</text>
+
+<!-- edges: front to back -->
+<path class="e" d="M355 172 L160 334"/><text class="el" x="222" y="250">clause text</text>
+<!-- model chain -->
+<path class="e" d="M232 365 L276 365"/>
+<path class="e" d="M462 365 L496 365"/><text class="el" x="479" y="350">JSON</text>
+<path class="e" d="M565 336 C548 310, 420 304, 372 322"/><text class="el" x="468" y="302">retry once</text>
+<path class="e" d="M520 394 L400 458"/><text class="el" x="480" y="432">if it fails</text>
+<!-- crossing the boundary -->
+<path class="e" d="M634 362 L704 358"/>
+<path class="e" d="M464 480 C600 470, 640 420, 706 378"/>
+<text class="elb" x="700" y="418">typed clause</text>
+<!-- deterministic chain -->
+<path class="e" d="M862 365 L906 365"/>
+<path class="e" d="M1082 365 L1126 365"/><text class="el" x="1104" y="350">verdict</text>
+<path class="eg" d="M995 464 L995 406"/><text class="el" x="1048" y="440" fill="#17694a">v7</text>
+<path class="eg" d="M1084 495 L1112 495"/>
+<!-- verdict to the three answers -->
+<path class="e" d="M1183 406 L1183 448"/>
+<path class="e" d="M1240 406 C1240 428, 1308 426, 1308 448"/>
+<path class="e" d="M1285 406 C1285 430, 1433 422, 1433 448"/>
+<!-- back to front -->
+<path class="e" d="M785 336 L785 174"/><text class="el" x="818" y="250" text-anchor="start">reviewed</text>
+<path class="e" d="M1210 324 L1210 174"/><text class="el" x="1178" y="250" text-anchor="end">shown</text>
+<path class="e" d="M1470 436 C1470 340, 1420 300, 1420 174"/><text class="el" x="1490" y="330">offered</text>
+<!-- re-test loop: the redraft only -->
+<path class="er" d="M1183 518 L1183 600 L160 600 L160 394"/>
+<text x="688" y="592" font-size="13" font-weight="700" fill="#94540a" text-anchor="middle">re-test the redrafted clause</text>
+
+<!-- footer -->
+<text x="40" y="712" font-size="18" font-weight="700" fill="#0f172a">The model reads the clause.  The graph decides whether the bank can do it.</text>
+<text x="1520" y="712" font-size="11.5" fill="#94a3b8" text-anchor="end">Meridian Commercial Bank is fictional. All capability data is synthetic.</text>
+</svg>
