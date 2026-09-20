@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FlaskConical } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AgreementPane } from '@/components/dryrun/AgreementPane'
 import { DemoDrawer } from '@/components/dryrun/DemoDrawer'
 import { FindingCard } from '@/components/dryrun/FindingCard'
+import { ACT_ONE, cardPlan, revealed, sweeping } from '@/components/dryrun/reveal'
 import { changelogEntry } from '@/components/results/GraphVersion'
 import { paragraphAnchor } from '@/components/workspace/DocumentViewer'
 import type { ToneSpan } from '@/components/workspace/Marked'
@@ -13,23 +14,27 @@ import { applyRepairs } from '@/domain/repair'
 import { buildComparisonPacket } from '@/documents/bundle'
 import { evidenceForCheck, type EvidencePassage } from '@/documents/citations'
 import { locateTerm } from '@/documents/locate'
-import { extractionFor } from '@/lib/extractClient'
-import { countDecisions, ms } from '@/lib/runFormat'
+import { extractionFor, type Extraction } from '@/lib/extractClient'
+import { countDecisions, ms, seconds } from '@/lib/runFormat'
 import { useReviewSession } from '@/lib/session'
 import { decisivePath, firstResult, timedEvaluate, useAgreementReview, type Evaluated } from '@/lib/useAgreementReview'
 
 const BASE_VERSION = capabilityGraph.version
 const TONE = { FAIL: 'fail', MANUAL: 'manual', PASS: 'pass' } as const
 
-type Phase = 'idle' | 'reading' | 'extracting' | 'checking' | 'done'
-const NEXT: Record<Phase, Phase> = { idle: 'idle', reading: 'extracting', extracting: 'checking', checking: 'done', done: 'done' }
-
 /**
- * Each label on the run button names a real operation, and the button never
- * moves on before that operation has finished. Reading and checking finish in
- * milliseconds, so a label is held at least this long to be readable.
+ * A response that has landed on its card. `at` is when its reveal began: the
+ * moment it arrived, or the end of act one if it beat that. `fromRoutes` replays
+ * only the engine's half, for a registry switch that re-checks the same terms.
  */
-const LABEL_HOLD_MS = 650
+interface Landed {
+  extraction: Extraction
+  at: number
+  fromRoutes: boolean
+}
+
+/** How often the screen re-reads the clock while a reveal is playing. The work itself never waits on this. */
+const TICK_MS = 50
 
 /** A run this page load has already finished, so coming back from a demo view does not ask for it again. */
 let ranThisLoad = false
@@ -52,8 +57,11 @@ export function Dryrun() {
   const version = asked in capabilityGraphs ? asked : BASE_VERSION
   const graph = capabilityGraphs[version]!
 
-  const [phase, setPhase] = useState<Phase>(ranThisLoad ? 'done' : 'idle')
-  const run = useAgreementReview(version, phase !== 'idle')
+  const still = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
+  // When Run was pressed. A run this page load already finished is shown whole: there is nothing left to reveal.
+  const [startedAt, setStartedAt] = useState<number | null>(ranThisLoad ? -Infinity : null)
+  const started = startedAt !== null
+  const run = useAgreementReview(version, started)
   const { packet, citations } = run
   // Findings follow the document, not the fixture's listing order.
   const clauses = useMemo(() => [...run.clauses].sort((a, b) => a.clause.start - b.clause.start), [run.clauses])
@@ -62,31 +70,86 @@ export function Dryrun() {
   const [focus, setFocus] = useState<{ clauseId: string; checkIndex: number } | null>(null)
   const [procedure, setProcedure] = useState<EvidencePassage | null>(null)
   const [retests, setRetests] = useState<Record<string, Evaluated>>({})
+  const [landed, setLanded] = useState<Record<string, Landed>>({})
+  /** clause_id -> when "Try live again" asked, so that card's wait counts from its own request. */
+  const [askedAgain, setAskedAgain] = useState<Record<string, number>>({})
+  /** clause_id -> when Apply fix was pressed. */
+  const [applied, setApplied] = useState<Record<string, number>>({})
+  const [now, setNow] = useState(() => performance.now())
   const [jump, setJump] = useState<{ anchor: string; card: string | null; n: number } | null>(null)
   const [drawer, setDrawer] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const closeDrawer = useCallback(() => setDrawer(false), [])
 
-  // The run button's state machine: advance only when the operation it names is done.
-  const since = useRef(0)
-  const ready =
-    (phase === 'reading' && run.steps.read === 'done') ||
-    (phase === 'extracting' && run.steps.extract === 'done') ||
-    (phase === 'checking' && run.steps.check === 'done')
+  // A response lands when the hook hands it over. Its reveal starts then, or after act one, whichever is later.
   useEffect(() => {
-    if (!ready) return
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const wait = still ? 0 : Math.max(0, LABEL_HOLD_MS - (performance.now() - since.current))
-    const timer = setTimeout(() => {
-      since.current = performance.now()
-      setPhase((p) => NEXT[p])
-    }, wait)
-    return () => clearTimeout(timer)
-  }, [ready, phase])
+    if (startedAt === null) return
+    setLanded((prev) => {
+      let next = prev
+      for (const c of clauses) {
+        const id = c.clause.clause_id
+        if (c.extraction && c.evaluated) {
+          if (prev[id]?.extraction === c.extraction) continue
+          const at = startedAt === -Infinity && askedAgain[id] === undefined ? -Infinity : Math.max(performance.now(), startedAt + (still ? 0 : ACT_ONE.hold))
+          next = { ...next, [id]: { extraction: c.extraction, at, fromRoutes: false } }
+        } else if (prev[id]) {
+          const { [id]: _gone, ...rest } = next
+          next = rest
+        }
+      }
+      return next
+    })
+  }, [clauses, startedAt, still, askedAgain])
+
+  // Where every card is in its reveal, from the one clock. The margin pill reads the same numbers as the card.
+  const cards = clauses.map((c) => {
+    const id = c.clause.clause_id
+    const hit = landed[id]
+    const askedAt = askedAgain[id] ?? (startedAt !== null && Number.isFinite(startedAt) ? startedAt : now)
+    if (!hit || hit.extraction !== c.extraction || !c.evaluated) return { review: c, id, askedAt, t: null, repairT: null, plan: null, stamped: false, ready: false, flipped: false, settled: false, swept: false }
+    const plan = cardPlan(c, retests[id] ?? null, still)
+    const since = now - hit.at + (hit.fromRoutes ? plan.line.counter : 0)
+    const t = since < 0 ? null : since
+    const repairT = plan.repair && applied[id] !== undefined ? Math.max(0, now - applied[id]!) : plan.repair ? Infinity : null
+    const ready = t !== null && t >= plan.line.done
+    const flipped = plan.repair !== null && repairT !== null && repairT >= plan.repair.line.pill
+    return {
+      review: c,
+      id,
+      askedAt,
+      t,
+      repairT,
+      plan,
+      stamped: t !== null && t >= plan.line.pill,
+      ready,
+      flipped,
+      settled: ready && (plan.repair === null || (repairT !== null && repairT >= plan.repair.line.done)),
+      swept: t !== null && !hit.fromRoutes && !still && sweeping(t),
+    }
+  })
+  const done = started && cards.length > 0 && cards.every((c) => c.ready)
+  // The column is shorter than four live cards, so the card a response has just landed on is brought into view.
+  // It is followed again as it grows: once its terms are in, and once its marks are.
+  const latest = cards.filter((c) => c.t !== null && !c.ready).sort((a, b) => a.t! - b.t!)[0]
+  const following = latest ? `${latest.id}|${latest.t! < latest.plan!.line.counter ? 0 : latest.t! < latest.plan!.line.pill ? 1 : 2}` : ''
   useEffect(() => {
-    if (phase === 'done') ranThisLoad = true
-  }, [phase])
+    const id = following.split('|')[0]
+    if (!id) return
+    const behavior = still ? 'auto' : 'smooth'
+    document.querySelector(`[data-clause="${id}"]`)?.scrollIntoView({ block: 'nearest', behavior })
+    // The sweep is on the clause itself, so the document shows that clause as its response lands.
+    if (following.endsWith('|0')) document.querySelector(`[data-sweep="${id}"]`)?.parentElement?.scrollIntoView({ block: 'nearest', behavior })
+  }, [following, still])
+  const playing = started && (cards.length === 0 || cards.some((c) => !c.settled))
+  useEffect(() => {
+    if (!playing) return
+    const timer = setInterval(() => setNow(performance.now()), TICK_MS)
+    return () => clearInterval(timer)
+  }, [playing])
+  useEffect(() => {
+    if (done) ranThisLoad = true
+  }, [done])
 
   // Navigation the analyst asked for. Nothing else moves the scroll position.
   useEffect(() => {
@@ -95,24 +158,35 @@ export function Dryrun() {
     if (jump.card) document.querySelector(`[data-clause="${jump.card}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [jump])
 
-  const begin = (next: Phase) => {
-    since.current = performance.now()
-    setPhase(next)
-  }
   const reset = () => {
     setRetests({})
+    setApplied({})
     setFocus(null)
     setProcedure(null)
   }
-  const start = () => begin('reading')
+  const begin = () => {
+    const at = performance.now()
+    setAskedAgain({})
+    setLanded({})
+    setNow(at)
+    setStartedAt(at)
+    // Act one happens in Article II, so that is where the document goes.
+    const first = clauses[0]
+    const pane = document.querySelector('[data-scroll="document"]')
+    const target = first && packet && document.getElementById(paragraphAnchor(packet.agreement.meta.document_id, first.clause.start))
+    if (pane && target) {
+      const top = pane.scrollTop + target.getBoundingClientRect().top - pane.getBoundingClientRect().top - 96
+      pane.scrollTo({ top, behavior: still ? 'auto' : 'smooth' })
+    }
+  }
+  const start = begin
   const runAgain = () => {
     reset()
     setExpandedId(null)
     run.rerun()
-    begin('reading')
+    begin()
   }
 
-  const done = phase === 'done'
   const doc = (procedure && packet?.documents.find((d) => d.meta.document_id === procedure.document_id)) || packet?.agreement || null
 
   const spans = useMemo<ToneSpan[]>(() => {
@@ -150,6 +224,8 @@ export function Dryrun() {
     const requirements = review.extraction.clause.requirements.map((r, i) => (i === 0 ? applyRepairs(r, review.plan!.proposals) : r))
     const retest = timedEvaluate({ ...review.extraction.clause, requirements }, graph, `${packet.agreement.meta.version}+proposed-amendment`)
     setRetests((r) => ({ ...r, [clauseId]: retest }))
+    setApplied((a) => ({ ...a, [clauseId]: performance.now() }))
+    setNow(performance.now())
     // Bring the card's pills into view: FAIL → PASS is the point of the re-test.
     requestAnimationFrame(() => document.querySelector(`[data-clause="${clauseId}"]`)?.scrollIntoView({ block: 'start' }))
   }
@@ -159,8 +235,10 @@ export function Dryrun() {
     if (v === version) return
     reset()
     setSearch(v === BASE_VERSION ? {} : { v: String(v) }, { replace: true })
-    // Same extracted terms, re-checked against the other registry. No model call.
-    if (done) begin('checking')
+    // Same extracted terms, re-checked against the other registry. No model call, so only the engine's half replays.
+    const at = performance.now()
+    setNow(at)
+    setLanded((l) => Object.fromEntries(Object.entries(l).map(([id, hit]) => [id, { ...hit, at, fromRoutes: true }])))
   }
 
   const currentClauseId = expandedId ?? agreement.clauses[0]!.clause_id
@@ -223,13 +301,27 @@ export function Dryrun() {
   const routes = clauses.reduce((n, c) => n + (c.evaluated ? firstResult(c.evaluated).candidate_paths.length : 0), 0)
   const counts = countDecisions(decided.map((decision) => ({ decision })))
   const entry = changelogEntry(graph).label.match(/^(v\d+) \((.+)\)$/)
-  const running =
-    phase === 'reading'
-      ? `Reading ${packet.documents.length} documents…`
-      : phase === 'extracting'
-        ? `Extracting ${clauses.length} clauses…`
-        : `Checking ${routes} routes…`
-  const retested = Object.fromEntries(Object.entries(retests).map(([id, e]) => [id, e.report.decision]))
+  const found = started ? revealed(now - startedAt, 0, still ? 0 : ACT_ONE.every, clauses.length) : 0
+  const actOne = started && !still && now - startedAt < ACT_ONE.hold
+  const checked = cards.filter((c) => c.stamped)
+  const checkedCounts = countDecisions(checked.map((c) => ({ decision: c.review.evaluated!.report.decision })))
+  // The status line only ever adds up what is already on screen.
+  const answered = cards.filter((c) => c.t !== null)
+  const liveMs = answered.flatMap((c) => (c.review.extraction!.clause.extraction_source === 'nemotron' && c.review.extraction!.diagnostics ? [c.review.extraction!.diagnostics.upstream_ms] : []))
+  const answeredLive = answered.filter((c) => c.review.extraction!.clause.extraction_source === 'nemotron').length
+  const searched = cards.filter((c) => c.t !== null && c.plan && c.t >= c.plan.line.counter + c.plan.line.counterMs)
+  const searchedRoutes = searched.reduce((n, c) => n + firstResult(c.review.evaluated!).candidate_paths.length, 0)
+  const searchedMs = searched.reduce((n, c) => n + c.review.evaluated!.ms, 0)
+  const statusLine = [
+    answered.length === 0
+      ? `Nemotron reading ${clauses.length} clauses`
+      : `Nemotron ${answered.length < clauses.length ? `${answered.length} of ${clauses.length}` : clauses.length} clauses${
+          answeredLive < answered.length ? ` · ${answeredLive} live, ${answered.length - answeredLive} cached` : ''
+        }${liveMs.length > 0 ? ` · ${liveMs.length > 1 ? `${seconds(Math.min(...liveMs)).replace(' s', '')}–` : ''}${seconds(Math.max(...liveMs))}` : ''}`,
+    searched.length > 0 ? `Engine ${searchedRoutes} routes · ${ms(searchedMs)}` : 'Engine waiting for terms',
+    'every value shown is real output, paced for reading.',
+  ].join(' · ')
+  const retested = Object.fromEntries(cards.flatMap((c) => (c.flipped ? [[c.id, retests[c.id]!.report.decision]] : [])))
   const diagnostics = done
     ? `${packet.documents.length} files read in ${ms(packet.read_ms)} · ${citations.verified}/${citations.verified + citations.mismatched} citations verified · ${live} live, ${extracted.length - live} cached · ${routes} routes in ${ms(clauses.reduce((n, c) => n + (c.evaluated?.ms ?? 0), 0))}`
     : null
@@ -242,20 +334,22 @@ export function Dryrun() {
           <span className="text-xs text-ink-faint">Dry-run the loan before you sign.</span>
         </p>
         <div className="ml-auto flex items-center gap-4 whitespace-nowrap">
-          {phase === 'idle' ? (
+          {!started ? (
             <button type="button" data-control="run" onClick={start} className="rounded-md bg-ink px-4 py-1.5 text-sm font-semibold text-sheet hover:bg-ink-soft">
               Run dry run
             </button>
           ) : !done ? (
-            <p role="status" data-testid="run-state" className="flex items-center gap-2 rounded-md bg-rule-soft px-4 py-1.5 text-sm font-semibold text-ink-soft">
-              {running}
-              {phase === 'extracting' && extracted.length > 0 && (
-                <span className="font-normal">
-                  {live > 0 && `${live} live`}
-                  {live > 0 && extracted.length > live && ' · '}
-                  {extracted.length > live && `${extracted.length - live} cached`}
-                </span>
-              )}
+            <p role="status" data-testid="run-state" className="rounded-md bg-rule-soft px-4 py-1.5 text-sm font-semibold text-ink-soft tabular-nums">
+              {actOne
+                ? `Reading the agreement · ${found} borrowing ${found === 1 ? 'clause' : 'clauses'} found`
+                : [
+                    `${checked.length} of ${clauses.length} checked`,
+                    checkedCounts.FAIL > 0 && `${checkedCounts.FAIL} fail`,
+                    checkedCounts.MANUAL > 0 && `${checkedCounts.MANUAL} ${checkedCounts.MANUAL === 1 ? 'needs' : 'need'} a person`,
+                    checkedCounts.PASS > 0 && `${checkedCounts.PASS} pass`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
             </p>
           ) : (
             <p role="status" data-testid="run-state" className="text-sm">
@@ -283,13 +377,21 @@ export function Dryrun() {
           </button>
         </div>
       </header>
+      {started && (
+        <p data-testid="status-line" className="shrink-0 truncate border-b border-rule-soft bg-sheet px-5 py-1 text-xs text-ink-faint tabular-nums">
+          {statusLine}
+        </p>
+      )}
 
       <main id="main" className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_28.75rem]">
         <section aria-label={doc.meta.kind === 'agreement' ? 'The agreement' : 'Bank procedure'} className="min-h-0 min-w-0">
           <AgreementPane
             doc={doc}
             clauses={clauses}
-            verdicts={done}
+            found={new Set(cards.slice(0, found).map((c) => c.id))}
+            swept={new Set(cards.filter((c) => c.swept).map((c) => c.id))}
+            stamped={new Set(cards.filter((c) => c.stamped).map((c) => c.id))}
+            still={still}
             retested={retested}
             selectedClauseId={expandedId}
             spans={spans}
@@ -307,14 +409,9 @@ export function Dryrun() {
         </section>
 
         <aside aria-label="Findings" data-scroll="findings" className="min-h-0 overflow-y-auto border-l border-rule px-5 py-6">
-          {done ? (
-            <ul className="space-y-4">
-              {clauses.map((c) => {
-                const id = c.clause.clause_id
-                // Only while "Try live again" has this clause's extraction in flight.
-                if (!c.evaluated || !c.extraction) {
-                  return <li key={id} className="rounded-lg border border-rule bg-sheet p-5 text-sm text-ink-soft">Extracting §{c.clause.source_span.section} again…</li>
-                }
+          {started ? (
+            <ul className="space-y-3">
+              {cards.slice(0, found).map(({ review: c, id, askedAt, t, repairT }) => {
                 return (
                   <FindingCard
                     key={id}
@@ -323,6 +420,7 @@ export function Dryrun() {
                     citations={citations}
                     expanded={expandedId === id}
                     retest={retests[id] ?? null}
+                    pacing={{ t, askedAt, repairT, still }}
                     onToggle={() => selectClause(id, 'card')}
                     onApply={() => applyFix(id)}
                     onOpenAgreement={(checkIndex) => {
@@ -382,6 +480,9 @@ export function Dryrun() {
           onRetryLive={(clauseId) => {
             // New terms invalidate a re-test of the old ones.
             setRetests(({ [clauseId]: _stale, ...rest }) => rest)
+            setApplied(({ [clauseId]: _then, ...rest }) => rest)
+            setAskedAgain((a) => ({ ...a, [clauseId]: performance.now() }))
+            setNow(performance.now())
             if (focus?.clauseId === clauseId) setFocus(null)
             run.retryLive(clauseId)
           }}

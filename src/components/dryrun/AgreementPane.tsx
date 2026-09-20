@@ -43,7 +43,10 @@ export function VerdictPill({
 export function AgreementPane({
   doc,
   clauses,
-  verdicts,
+  found,
+  swept,
+  stamped,
+  still,
   retested,
   selectedClauseId,
   spans,
@@ -52,8 +55,13 @@ export function AgreementPane({
 }: {
   doc: PacketDocument
   clauses: ClauseReview[]
-  /** False until the run has finished: the agreement reads as a plain document. */
-  verdicts: boolean
+  /** Clauses the run has found so far: outlined in place. Empty before a run: a plain document. */
+  found: ReadonlySet<string>
+  /** Clauses whose extraction has landed: the highlight sweeps across them once. */
+  swept: ReadonlySet<string>
+  /** Clauses whose verdict has been stamped on their card: the same pill, the same moment, in the margin. */
+  stamped: ReadonlySet<string>
+  still: boolean
   /** clause_id -> the verdict of its re-tested fix. */
   retested: Record<string, Decision>
   selectedClauseId: string | null
@@ -98,7 +106,8 @@ export function AgreementPane({
                 const review = byStart.get(p.start)
                 const pageBreak = p.page !== page ? ((page = p.page), true) : false
                 const id = review?.clause.clause_id
-                const decision = verdicts ? review?.evaluated?.report.decision : undefined
+                const decision = id !== undefined && stamped.has(id) ? review?.evaluated?.report.decision : undefined
+                const outlined = id !== undefined && found.has(id) && !decision
                 const selected = id !== undefined && id === selectedClauseId
                 return (
                   <div key={p.start}>
@@ -110,8 +119,14 @@ export function AgreementPane({
                         'relative mt-2 scroll-mt-6',
                         decision && 'cursor-pointer',
                         selected && decision && '-mx-2 rounded bg-rule-soft/70 px-2',
+                        outlined && '-mx-2 animate-rise-in rounded px-2 outline outline-1 outline-accent/70',
                       )}
+                      data-found={outlined || undefined}
                     >
+                      {id !== undefined && swept.has(id) && (
+                        // One pass, left to right, then it fades: the clause this response was about.
+                        <span aria-hidden data-sweep={id} className="pointer-events-none absolute -inset-x-2 inset-y-0 origin-left animate-draw rounded bg-mark/70 mix-blend-multiply" />
+                      )}
                       {decision && id && (
                         <button
                           type="button"
@@ -123,7 +138,7 @@ export function AgreementPane({
                           }}
                           className={cn('absolute top-0.5 flex w-[4.75rem] justify-end rounded-full', selected ? '-left-[5rem]' : '-left-[5.5rem]')}
                         >
-                          <VerdictPill decision={retested[id] ?? decision} arrive={retested[id] !== undefined} />
+                          <VerdictPill decision={retested[id] ?? decision} arrive={!still} />
                         </button>
                       )}
                       <p className="font-serif text-[0.95rem] leading-relaxed text-pretty">

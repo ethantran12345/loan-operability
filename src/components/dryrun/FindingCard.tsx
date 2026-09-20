@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ArrowRight, ChevronRight } from 'lucide-react'
-import { PathSearch } from '@/components/run/parts'
+import { ArrowRight, Check, ChevronRight, User, X } from 'lucide-react'
+import { Elapsed, PathSearch, Typewriter } from '@/components/run/parts'
 import { Id } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Marked, type MarkTone } from '@/components/workspace/Marked'
@@ -10,8 +10,11 @@ import type { CapabilityGraph, CheckResult } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { OUTCOME_HEADLINE, bankSide, findingTitle, nextAction, requiredSide } from '@/lib/findingText'
 import { humanize } from '@/lib/format'
+import { sourceDetail } from '@/lib/extractClient'
+import { seconds } from '@/lib/runFormat'
 import { decisivePath, firstResult, type ClauseReview, type Evaluated } from '@/lib/useAgreementReview'
 import { VerdictPill } from './AgreementPane'
+import { cardPlan, revealed, routesCounted, type ChipChange, type ChipMark, type TermChip } from './reveal'
 
 const TONE: Record<CheckResult['verdict'], MarkTone> = { FAIL: 'fail', MANUAL: 'manual', PASS: 'pass' }
 const EDGE: Record<CheckResult['verdict'], string> = { FAIL: 'border-l-fail', MANUAL: 'border-l-manual', PASS: 'border-l-pass' }
@@ -30,7 +33,7 @@ const agreementLabel = (check: CheckResult) => (requiredSide(check) === 'Agreeme
 const bankValue = (check: CheckResult) => (check.field === 'amount.value' ? `up to ${bankSide(check).value}` : bankSide(check).value)
 
 /** The product in one glance: what the agreement says, against what the bank supports. */
-function Pair({ check, large = false }: { check: CheckResult; large?: boolean }) {
+function Pair({ check }: { check: CheckResult }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4">
       {[
@@ -39,8 +42,7 @@ function Pair({ check, large = false }: { check: CheckResult; large?: boolean })
       ].map((side) => (
         <div key={side.label} className="min-w-0">
           <dt className="text-xs text-ink-faint">{side.label}</dt>
-          {/* The weight is for a value that reads at a glance; a sentence stays at body size. */}
-          <dd className={cn('leading-snug font-semibold text-pretty', large && side.value.length <= 28 ? 'text-[1.05rem]' : 'text-sm')}>{side.value}</dd>
+          <dd className="text-sm leading-snug font-semibold text-pretty">{side.value}</dd>
         </div>
       ))}
     </dl>
@@ -88,17 +90,104 @@ function Passage({ heading, source, text, offset, spans, tone, note, link, onOpe
   )
 }
 
-export function FindingCard({
-  review,
-  graph,
-  citations,
-  expanded,
-  retest,
-  onToggle,
-  onApply,
-  onOpenAgreement,
-  onOpenProcedure,
-}: {
+/** Where a card is in its reveal. Times are real; only the reveal of finished work is paced. */
+export interface CardPacing {
+  /** ms since this card's response landed and its reveal began. null: still waiting on the model. */
+  t: number | null
+  /** performance.now() when the extraction was asked for: the waiting counter runs from here. */
+  askedAt: number
+  /** ms since Apply fix and re-test. null: no re-test on this card. */
+  repairT: number | null
+  /** prefers-reduced-motion: everything lands at once. */
+  still: boolean
+}
+
+const MARK_ICON = { PASS: Check, MANUAL: User, FAIL: X } as const
+const MARK_TEXT = { PASS: 'text-pass', MANUAL: 'text-manual', FAIL: 'text-fail' } as const
+const MARK_SURFACE = {
+  PASS: 'border-pass-rule bg-sheet',
+  MANUAL: 'border-manual-rule bg-manual-soft',
+  FAIL: 'border-fail-rule bg-fail-soft',
+} as const
+
+/** One extracted term. The verdict mark and the bank's side land on it; a re-test retypes it in place. */
+function Chip({ chip, mark, change, still }: { chip: TermChip; mark: ChipMark | null; change: ChipChange | null; still: boolean }) {
+  const Icon = mark && MARK_ICON[mark.verdict]
+  return (
+    <span
+      data-chip={chip.key}
+      data-mark={mark?.verdict}
+      title={chip.note}
+      className={cn(
+        'inline-flex max-w-full animate-rise-in flex-col rounded-md border px-2 py-1 text-xs leading-tight transition-colors duration-200',
+        mark ? MARK_SURFACE[mark.verdict] : chip.missing ? 'border-manual-rule bg-manual-soft' : 'border-rule bg-paper/60',
+      )}
+    >
+      <span className={cn('flex flex-wrap items-center gap-x-1 font-semibold', !mark && chip.missing && 'text-manual')}>
+        {change ? (
+          <>
+            <span className="relative font-normal text-ink-faint">
+              {chip.text}
+              <span aria-hidden className="absolute inset-x-0 top-1/2 h-px origin-left animate-draw bg-ink-faint" />
+            </span>
+            <span className="sr-only">changes to</span>
+            <Typewriter text={change.to} durationMs={still ? 0 : 450} />
+            <span className="font-mono text-[0.68rem] font-normal text-ink-soft">· {change.capability_id}</span>
+          </>
+        ) : (
+          chip.text
+        )}
+        {Icon && mark && !mark.bank && <Icon key={mark.verdict} aria-label={mark.verdict} strokeWidth={3} className={cn('size-3 shrink-0 animate-verdict-in', MARK_TEXT[mark.verdict])} />}
+      </span>
+      {Icon && mark?.bank && (
+        <span className={cn('mt-0.5 flex animate-rise-in items-start gap-1 text-[0.7rem] text-pretty', MARK_TEXT[mark.verdict])}>
+          <Icon aria-label={mark.verdict} strokeWidth={3} className="mt-px size-3 shrink-0" />
+          {mark.bank}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** A check the route itself demands (an approval, a manual step). The engine's, so it arrives with the marks. */
+function RouteChip({ check }: { check: CheckResult }) {
+  const Icon = MARK_ICON[check.verdict]
+  return (
+    <span data-chip={check.field} data-mark={check.verdict} className={cn('inline-flex max-w-full animate-rise-in flex-col rounded-md border border-dashed px-2 py-1 text-xs leading-tight', MARK_SURFACE[check.verdict])}>
+      <span className="font-semibold">Route needs {check.required}</span>
+      <span className={cn('mt-0.5 flex items-start gap-1 text-[0.7rem] text-pretty', MARK_TEXT[check.verdict])}>
+        <Icon aria-label={check.verdict} strokeWidth={3} className="mt-px size-3 shrink-0" />
+        {check.supported}
+      </span>
+    </span>
+  )
+}
+
+function ReadingBar() {
+  return (
+    <span aria-hidden className="relative block h-0.5 w-12 overflow-hidden rounded-full bg-rule">
+      <span className="absolute inset-0 animate-pulse rounded-full bg-accent/60" />
+    </span>
+  )
+}
+
+/** Before the model has answered: the section, the clause's own headline, and the real wait so far. */
+function WaitingCard({ review, askedAt }: { review: ClauseReview; askedAt: number }) {
+  return (
+    <li data-clause={review.clause.clause_id} data-stage="reading" className="rounded-lg border border-rule bg-sheet p-4">
+      <span className="flex items-center gap-2">
+        <ReadingBar />
+        <span className="font-serif text-sm font-semibold">§{review.clause.source_span.section}</span>
+        <span className="ml-auto text-xs text-ink-faint">
+          Nemotron reading · <Elapsed since={askedAt} />
+        </span>
+      </span>
+      <span className="mt-1.5 block text-sm text-ink-soft">{review.clause.headline}</span>
+    </li>
+  )
+}
+
+interface FindingCardProps {
   review: ClauseReview
   graph: CapabilityGraph
   citations: CitationIndex
@@ -108,7 +197,30 @@ export function FindingCard({
   onApply: () => void
   onOpenAgreement: (checkIndex: number) => void
   onOpenProcedure: (checkIndex: number, passage: EvidencePassage) => void
-}) {
+  pacing: CardPacing
+}
+
+export function FindingCard(props: FindingCardProps) {
+  const { pacing } = props
+  if (pacing.t === null || !props.review.extraction || !props.review.evaluated) {
+    return <WaitingCard review={props.review} askedAt={pacing.askedAt} />
+  }
+  return <LandedCard {...props} pacing={pacing} t={pacing.t} />
+}
+
+function LandedCard({
+  review,
+  graph,
+  citations,
+  expanded,
+  retest,
+  onToggle,
+  onApply,
+  onOpenAgreement,
+  onOpenProcedure,
+  pacing,
+  t,
+}: FindingCardProps & { t: number }) {
   const [routes, setRoutes] = useState(false)
   const { clause, extraction, plan } = review
   const evaluated = review.evaluated!
@@ -124,18 +236,85 @@ export function FindingCard({
   const alsoOpen = indexed.filter((x) => x.check.verdict !== 'PASS' && x.check.verdict !== decision)
   const left = retest ? (decisivePath(retest)?.checks ?? []).filter((k) => k.verdict !== 'PASS') : []
 
+  // The reveal. Everything below is finished work; `t` only decides how much of it is on screen yet.
+  const { chips, marks, route, retry, line, repair } = cardPlan(review, retest, pacing.still)
+  const rt = repair ? (pacing.repairT ?? Infinity) : null
+  const stamped = t >= line.pill
+  const ready = t >= line.done
+  const flipped = repair !== null && rt !== null && rt >= repair.line.pill
+  const remarking = repair !== null && rt !== null && rt >= repair.line.marks
+  const chipsShown = revealed(t, line.chips, line.chipEvery, chips.length)
+  const marksShown = revealed(t, line.marks, line.markEvery, marks.filter(Boolean).length + route.length)
+  const reMarksShown = repair && rt !== null ? revealed(rt, repair.line.marks, repair.line.markEvery, repair.marks.filter(Boolean).length + repair.route.length) : 0
+  const changesShown = repair && rt !== null ? revealed(rt, repair.line.chips, repair.line.chipEvery, repair.changes.filter(Boolean).length) : 0
+  const paths = result.candidate_paths.length
+  const rePaths = retest ? firstResult(retest).candidate_paths.length : 0
+  const recounting = repair !== null && rt !== null && rt >= repair.line.counter
+  const counted = recounting ? routesCounted(rt!, repair!.line, rePaths) : routesCounted(t, line, paths)
+  const countedOf = recounting ? rePaths : paths
+  const live = extraction!.clause.extraction_source === 'nemotron'
+  const upstream = extraction!.diagnostics?.upstream_ms
+  let markOrdinal = 0
+  let reMarkOrdinal = 0
+  let changeOrdinal = 0
+  const shownRoute = remarking ? repair!.route.slice(0, Math.max(0, reMarksShown - repair!.marks.filter(Boolean).length)) : route.slice(0, Math.max(0, marksShown - marks.filter(Boolean).length))
+
   return (
-    <li data-clause={clause.clause_id} className={cn('rounded-lg border bg-sheet', expanded ? 'border-ink-faint' : 'border-rule')}>
-      <button type="button" data-control="card" aria-expanded={expanded} onClick={onToggle} className="block w-full rounded-lg p-5 text-left">
+    <li
+      data-clause={clause.clause_id}
+      data-stage={!stamped ? (counted === 0 ? 'terms' : marksShown === 0 ? 'routes' : 'marks') : repair && !flipped ? 'retesting' : 'checked'}
+      className={cn('rounded-lg border bg-sheet', expanded ? 'border-ink-faint' : 'border-rule')}
+    >
+      <button type="button" data-control="card" aria-expanded={expanded} disabled={!ready} onClick={onToggle} className="block w-full rounded-lg p-4 text-left disabled:cursor-default">
         <span className="flex items-center gap-2">
-          <VerdictPill decision={retest?.report.decision ?? decision} from={retest ? decision : undefined} />
+          {stamped ? (
+            <VerdictPill decision={flipped ? retest!.report.decision : decision} from={flipped ? decision : undefined} arrive={!pacing.still} />
+          ) : (
+            <ReadingBar />
+          )}
           <span className="font-serif text-sm font-semibold">§{clause.source_span.section}</span>
-          <ChevronRight aria-hidden className={cn('ml-auto size-4 text-ink-faint transition-transform', expanded && 'rotate-90')} />
+          {counted > 0 && (
+            <span data-testid="route-counter" className="font-mono text-[0.7rem] whitespace-nowrap text-ink-faint tabular-nums">
+              {counted < countedOf ? `searching routes · ${counted} of ${countedOf}` : `${countedOf} ${countedOf === 1 ? 'route' : 'routes'}`}
+            </span>
+          )}
+          <span
+            data-testid="source-badge"
+            title={`${sourceDetail(extraction!)}${review.reused ? ' This session had already asked for this clause; the time is the model call the server measured.' : ''}`}
+            className={cn('ml-auto rounded-full border px-2 py-0 text-[0.68rem] font-semibold whitespace-nowrap', live ? 'border-accent/25 bg-accent-soft text-accent' : 'border-rule bg-rule-soft text-ink-soft')}
+          >
+            {live ? `Live Nemotron${upstream ? ` · ${seconds(upstream)}` : ''}` : 'Cached fixture'}
+          </span>
+          <ChevronRight aria-hidden className={cn('size-4 shrink-0 text-ink-faint transition-transform', expanded && 'rotate-90', !ready && 'invisible')} />
         </span>
-        <span className="mt-2 block text-sm text-ink-soft">
-          {decision === 'PASS' || !lead ? OUTCOME_HEADLINE.PASS : findingTitle(lead, requirement)}
+        <span className="mt-1.5 block text-sm text-ink-soft">
+          {!stamped ? clause.headline : decision === 'PASS' || !lead ? OUTCOME_HEADLINE.PASS : findingTitle(lead, requirement)}
         </span>
-        {lead && <span className="mt-3 block"><Pair check={lead} large /></span>}
+        {retry && (
+          <span data-testid="guard-retry" title={retry} className="mt-2 block animate-rise-in truncate text-xs text-manual">
+            Rejected: {retry} · asked again
+          </span>
+        )}
+        <span className="mt-2.5 flex flex-wrap items-start gap-1.5">
+          {chips.slice(0, chipsShown).map((chip, i) => {
+            const original = marks[i] ?? null
+            const again = repair?.marks[i] ?? null
+            const mark = again && remarking && reMarkOrdinal++ < reMarksShown ? again : original && markOrdinal++ < marksShown ? original : null
+            const change = repair?.changes[i] ?? null
+            return <Chip key={chip.key} chip={chip} mark={mark} change={change && changeOrdinal++ < changesShown ? change : null} still={pacing.still} />
+          })}
+          {shownRoute.map((check, i) => (
+            <RouteChip key={`${check.field}-${i}`} check={check} />
+          ))}
+        </span>
+        {chipsShown === chips.length && (
+          <span className="mt-2.5 flex items-center gap-2 text-[0.68rem] text-ink-faint">
+            <span aria-hidden className="relative block h-0.5 flex-1 overflow-hidden rounded-full bg-rule-soft">
+              <span className="absolute inset-y-0 left-0 origin-left animate-draw rounded-full bg-accent/70" style={{ width: `${requirement.confidence * 100}%` }} />
+            </span>
+            Model confidence {Math.round(requirement.confidence * 100)}%
+          </span>
+        )}
       </button>
 
       {expanded && (
@@ -206,7 +385,7 @@ export function FindingCard({
 
           {plan && plan.proposals.length > 0 ? (
             <div>
-              <p className="text-xs font-semibold">{retest ? 'Changes applied in the re-test' : 'Proposed changes'}</p>
+              <p className="text-xs font-semibold">{flipped ? 'Changes applied in the re-test' : 'Proposed changes'}</p>
               <ul className="mt-1.5 space-y-1.5">
                 {plan.proposals.map((p) => (
                   <li key={p.field} className="text-sm">
@@ -216,7 +395,9 @@ export function FindingCard({
                   </li>
                 ))}
               </ul>
-              {retest ? (
+              {retest && !flipped ? (
+                <p data-testid="retesting" className="mt-3 text-sm text-ink-soft">Re-testing the changed terms…</p>
+              ) : retest ? (
                 <p data-testid="retest" className="mt-3 text-sm text-ink-soft">
                   {retest.report.decision === 'PASS'
                     ? 'With these changes the clause fits one complete route. The agreement itself is unchanged until it is redrafted.'
