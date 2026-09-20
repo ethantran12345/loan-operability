@@ -5,7 +5,7 @@ import { proposeRepairs, type RepairPlan } from '@/domain/repair'
 import type { CandidatePath, CapabilityGraph, EvaluationReport, ExtractedClause, RequirementResult } from '@/domain/types'
 import { verifyCitations, type CitationIndex } from '@/documents/citations'
 import { readPacket, readPacketFrom, type Packet, type PacketFile, type ScopedClause } from '@/documents/packet'
-import { extractionFor, type Extraction } from './extractClient'
+import { askedAtFor, extractionFor, type Extraction } from './extractClient'
 
 /** One real evaluation: its inputs, its report, and how long `evaluate()` took. */
 export interface Evaluated {
@@ -31,6 +31,8 @@ export const decisivePath = (e: Evaluated): CandidatePath | undefined => {
 export interface ClauseReview {
   clause: ScopedClause
   extraction: Extraction | null
+  /** performance.now() when this clause's request left, or is due to: requests leave one at a time. null before it is asked for. */
+  askedAt: number | null
   /** True when this session had already extracted the clause before this run asked. */
   reused: boolean
   evaluated: Evaluated | null
@@ -95,6 +97,8 @@ export function useAgreementReview(version: number, enabled = true, files?: Pack
   }, [version, graph, run, files])
 
   // 2. Extract terms: once per run, not per registry version.
+  // Every clause is asked for here, and extractionFor lets the requests leave one at a time,
+  // in the order the agreement states the clauses: the first clause on the page is the first asked.
   const clauses = read?.packet.clauses
   const clauseKey = clauses ? `${read.packet.agreement.sha256}|${clauses.map((c) => c.clause_id).join('|')}` : ''
   useEffect(() => {
@@ -102,7 +106,7 @@ export function useAgreementReview(version: number, enabled = true, files?: Pack
     let current = true
     setSettled({})
     setExtractedUnderVersion(version)
-    for (const c of clauses) {
+    for (const c of [...clauses].sort((x, y) => x.start - y.start)) {
       const asked = performance.now()
       void extractionFor(c, run > 0).then((extraction) => {
         if (!current) return
@@ -123,12 +127,14 @@ export function useAgreementReview(version: number, enabled = true, files?: Pack
     const otherGraph = Object.values(capabilityGraphs).find((g) => g.version !== version) ?? null
     return read.packet.clauses.map((clause) => {
       const hit = settled[clause.clause_id]
-      if (!hit) return { clause, extraction: null, reused: false, evaluated: null, otherVersion: null, plan: null }
+      const askedAt = askedAtFor(clause)
+      if (!hit) return { clause, extraction: null, askedAt, reused: false, evaluated: null, otherVersion: null, plan: null }
       const evaluated = timedEvaluate(hit.extraction.clause, graph, read.packet.agreement.meta.version)
       const req = hit.extraction.clause.requirements[0]!
       return {
         clause,
         extraction: hit.extraction,
+        askedAt,
         reused: hit.reused,
         evaluated,
         otherVersion: otherGraph ? timedEvaluate(hit.extraction.clause, otherGraph, read.packet.agreement.meta.version) : null,

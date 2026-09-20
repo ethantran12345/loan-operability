@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FlaskConical } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { AgreementPane } from '@/components/dryrun/AgreementPane'
 import { DemoDrawer } from '@/components/dryrun/DemoDrawer'
 import { FindingCard } from '@/components/dryrun/FindingCard'
@@ -15,12 +15,11 @@ import { TRANSACTION_TIME, agreement, capabilityGraph, capabilityGraphs } from '
 import { applyRepairs } from '@/domain/repair'
 import { buildComparisonPacket } from '@/documents/bundle'
 import { evidenceForCheck, verifyCitations, type EvidencePassage } from '@/documents/citations'
-import { addIntakeFiles, checkIntake, rememberIntake, rememberedIntake, sampleAgreementIntake, samplePolicyIntake, withoutPolicies, type IntakeFile } from '@/documents/intake'
+import { addIntakeFiles, checkIntake, rememberIntake, rememberedIntake, sampleAgreementIntake, type IntakeFile } from '@/documents/intake'
 import { locateFailing } from '@/documents/locate'
-import { extractionFor, type Extraction } from '@/lib/extractClient'
+import { REQUEST_SPACING_MS, type Extraction } from '@/lib/extractClient'
 import { readIntakeFile } from '@/lib/dropFiles'
 import { countDecisions, ms, seconds, shortDate } from '@/lib/runFormat'
-import { useReviewSession } from '@/lib/session'
 import { decisivePath, firstResult, timedEvaluate, useAgreementReview, type Evaluated } from '@/lib/useAgreementReview'
 
 const BASE_VERSION = capabilityGraph.version
@@ -40,7 +39,7 @@ interface Landed {
 /** How often the screen re-reads the clock while a reveal is playing. The work itself never waits on this. */
 const TICK_MS = 50
 
-/** A run this page load has already finished, so coming back from a demo view does not ask for it again. */
+/** A run this page load has already finished, so a remount of the screen does not ask for it again. */
 let ranThisLoad = false
 
 /** An element's top in the page's layout, which a transform in progress does not move. */
@@ -71,8 +70,6 @@ function download(name: string, text: string, type: string) {
 
 /** The product: one agreement, its findings, and five controls. Everything for a judge is in the Demo drawer. */
 export function Dryrun() {
-  const navigate = useNavigate()
-  const session = useReviewSession()
   const [search, setSearch] = useSearchParams()
   const asked = Number(search.get('v'))
   const version = asked in capabilityGraphs ? asked : BASE_VERSION
@@ -110,11 +107,10 @@ export function Dryrun() {
   const [jump, setJump] = useState<{ anchor: string; card: string | null; n: number } | null>(null)
   const [drawer, setDrawer] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
   const closeDrawer = useCallback(() => setDrawer(false), [])
 
   useEffect(() => rememberIntake(files), [files])
-  // Demo tools can replace policy files under a run. If the files stop making a packet, the run goes back to intake, which says why.
+  // A capabilities switch re-checks the files under a run. If they stop making a packet, the run goes back to intake, which says why.
   useEffect(() => {
     if (!started || intake.ready) return
     ranThisLoad = false
@@ -150,7 +146,8 @@ export function Dryrun() {
   const cards = clauses.map((c) => {
     const id = c.clause.clause_id
     const hit = landed[id]
-    const askedAt = askedAgain[id] ?? (startedAt !== null && Number.isFinite(startedAt) ? startedAt : now)
+    // Requests leave one at a time, so a card's wait counts from when its own request left, not from Run.
+    const askedAt = c.askedAt ?? askedAgain[id] ?? (startedAt !== null && Number.isFinite(startedAt) ? startedAt : now)
     if (!hit || hit.extraction !== c.extraction || !c.evaluated) return { review: c, id, askedAt, t: null, repairT: null, plan: null, stamped: false, ready: false, flipped: false, settled: false, swept: false }
     const plan = cardPlan(c, retests[id] ?? null, still)
     const since = now - hit.at + (hit.fromRoutes ? plan.line.counter : 0)
@@ -309,17 +306,6 @@ export function Dryrun() {
     setLanded((l) => Object.fromEntries(Object.entries(l).map(([id, hit]) => [id, { ...hit, at, fromRoutes: true }])))
   }
 
-  const currentClauseId = expandedId ?? agreement.clauses[0]!.clause_id
-  const withSubmission = async (to: string) => {
-    const review = clauses.find((c) => c.clause.clause_id === currentClauseId)
-    if (!review) return
-    // Results works on extracted terms. Before a run there are none yet, so ask for them now.
-    if (!review.extraction) setBusy(`Extracting §${review.clause.source_span.section} first…`)
-    const extraction = review.extraction ?? (await extractionFor(review.clause))
-    session.submit({ clause: extraction.clause, fallback_reason: extraction.fallback_reason, edits: [] })
-    navigate(to)
-  }
-
   const chatPacket = () => (packet ? buildComparisonPacket(packet, graph, TRANSACTION_TIME) : '')
   const copyPacket = async () => {
     const text = chatPacket()
@@ -370,26 +356,16 @@ export function Dryrun() {
     download(`dryrun-record.registry-v${version}.json`, JSON.stringify(record, null, 2), 'application/json')
   }
 
-  const demoDrawer = (diagnostics: string | null) =>
+  const demoDrawer = () =>
     drawer && (
         <DemoDrawer
           version={version}
           clauses={clauses}
-          diagnostics={diagnostics}
-          policies={intake.policies}
-          onPolicyFiles={addFiles}
-          onSamplePolicies={() => setFiles((prev) => [...withoutPolicies(prev), ...samplePolicyIntake()])}
-          onStandingPolicies={() => setFiles(withoutPolicies)}
           copied={copied}
-          busy={busy}
           onClose={closeDrawer}
           onVersion={switchVersion}
           onCopyPacket={copyPacket}
           onDownloadPacket={() => download(`dryrun-chat-packet.registry-v${version}.txt`, chatPacket(), 'text/plain')}
-          onChallenge={() => void withSubmission('/results#challenge-title')}
-          onWatchRun={() => navigate(`/run/${currentClauseId}${version === BASE_VERSION ? '' : `?v=${version}`}`)}
-          onTechnical={() => void withSubmission('/results')}
-          onWorkspace={() => navigate(`/workspace${version === BASE_VERSION ? '' : `?v=${version}`}`)}
           onRetryLive={(clauseId) => {
             // New terms invalidate a re-test of the old ones.
             setRetests(({ [clauseId]: _stale, ...rest }) => rest)
@@ -470,14 +446,11 @@ export function Dryrun() {
           onClear={() => setFiles([])}
         />
         {footer}
-        {demoDrawer(null)}
+        {demoDrawer()}
       </div>
     )
   }
 
-  const extracted = clauses.filter((c) => c.extraction)
-  const live = extracted.filter((c) => c.extraction!.clause.extraction_source === 'nemotron').length
-  const routes = clauses.reduce((n, c) => n + (c.evaluated ? firstResult(c.evaluated).candidate_paths.length : 0), 0)
   const counts = countDecisions(decided.map((decision) => ({ decision })))
   const entry = changelogEntry(graph).label.match(/^(v\d+) \((.+)\)$/)
   const found = started ? revealed(now - startedAt, 0, still ? 0 : ACT_ONE.every, clauses.length) : 0
@@ -486,6 +459,7 @@ export function Dryrun() {
   const checkedCounts = countDecisions(checked.map((c) => ({ decision: c.review.evaluated!.report.decision })))
   // The status line only ever adds up what is already on screen.
   const answered = cards.filter((c) => c.t !== null)
+  const askedSoFar = cards.filter((c) => c.askedAt <= now).length
   const liveMs = answered.flatMap((c) => (c.review.extraction!.clause.extraction_source === 'nemotron' && c.review.extraction!.diagnostics ? [c.review.extraction!.diagnostics.upstream_ms] : []))
   const answeredLive = answered.filter((c) => c.review.extraction!.clause.extraction_source === 'nemotron').length
   const searched = cards.filter((c) => c.t !== null && c.plan && c.t >= c.plan.line.counter + c.plan.line.counterMs)
@@ -493,7 +467,9 @@ export function Dryrun() {
   const searchedMs = searched.reduce((n, c) => n + c.review.evaluated!.ms, 0)
   const statusLine = [
     answered.length === 0
-      ? `Nemotron reading ${clauses.length} clauses`
+      ? askedSoFar < clauses.length
+        ? `Nemotron reading ${askedSoFar} of ${clauses.length} clauses · asked ${seconds(REQUEST_SPACING_MS)} apart`
+        : `Nemotron reading ${clauses.length} clauses`
       : `Nemotron read ${answered.length < clauses.length ? `${answered.length} of ${clauses.length}` : clauses.length} clauses${
           answeredLive < answered.length ? ` · ${answeredLive} live, ${answered.length - answeredLive} cached` : ''
         }${liveMs.length > 0 ? ` · ${liveMs.length > 1 ? `${seconds(Math.min(...liveMs)).replace(' s', '')}–` : ''}${seconds(Math.max(...liveMs))}` : ''}`,
@@ -502,9 +478,6 @@ export function Dryrun() {
   ].join(' · ')
   const replacedPolicies = intake.policies.filter((p) => p.source !== 'standing').length
   const retested = Object.fromEntries(cards.flatMap((c) => (c.flipped ? [[c.id, retests[c.id]!.report.decision]] : [])))
-  const diagnostics = done
-    ? `${packet.documents.length} files read in ${ms(packet.read_ms)} · ${citations.verified}/${citations.verified + citations.mismatched} citations verified · ${live} live, ${extracted.length - live} cached · ${routes} routes in ${ms(clauses.reduce((n, c) => n + (c.evaluated?.ms ?? 0), 0))}`
-    : null
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-paper">
@@ -627,7 +600,7 @@ export function Dryrun() {
 
       {footer}
 
-      {demoDrawer(diagnostics)}
+      {demoDrawer()}
     </div>
   )
 }

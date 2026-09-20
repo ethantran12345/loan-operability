@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, ChevronRight, User, X } from 'lucide-react'
 import { Elapsed, PathSearch, Typewriter } from '@/components/run/parts'
 import { Id } from '@/components/ui/badge'
@@ -303,13 +303,29 @@ function ReadingBar() {
 
 /** Before the model has answered: the section, the clause's own headline, and the real wait so far. */
 function WaitingCard({ review, askedAt }: { review: ClauseReview; askedAt: number }) {
+  // Requests leave one at a time. Until this clause's has left, nothing is reading it, and the card says so.
+  const [now, setNow] = useState(() => performance.now())
+  const queued = now < askedAt
+  useEffect(() => {
+    if (!queued) return
+    const timer = setInterval(() => setNow(performance.now()), 100)
+    return () => clearInterval(timer)
+  }, [queued])
   return (
-    <li data-clause={review.clause.clause_id} data-stage="reading" className="rounded-lg border border-rule bg-sheet px-3.5 py-3">
+    <li data-clause={review.clause.clause_id} data-stage={queued ? 'queued' : 'reading'} className="rounded-lg border border-rule bg-sheet px-3.5 py-3">
       <span className="flex items-center gap-2">
         <ReadingBar />
         <span className="font-serif text-sm font-semibold">§{review.clause.source_span.section}</span>
         <span className="ml-auto text-xs text-ink-faint">
-          Nemotron reading · <Elapsed since={askedAt} />
+          {queued ? (
+            <>
+              Next in line · asked in <span className="font-mono tabular-nums">{((askedAt - now) / 1000).toFixed(1)} s</span>
+            </>
+          ) : (
+            <>
+              Nemotron reading · <Elapsed since={askedAt} />
+            </>
+          )}
         </span>
       </span>
       <span className="mt-1 block text-sm text-ink-soft">{review.clause.headline}</span>

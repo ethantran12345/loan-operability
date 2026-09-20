@@ -59,22 +59,43 @@ const CLIENT_TIMEOUT_MS = 35_000
 const inFlight = new Map<string, Promise<Extraction>>()
 
 /**
- * The extraction for a clause, requested at most once per page load. Review calls
- * this for every clause as the agreement renders, so NVIDIA's queue is waited out
- * while the reader is still reading. The result is no less live for being early:
- * it is this session's own call, and it is labelled by what actually served it.
+ * How far apart requests to /api/extract leave. NVIDIA's free tier answers a burst
+ * of four with 429s, so a clause waits its turn. Nothing else about a request changes.
+ */
+export const REQUEST_SPACING_MS = 1_500
+
+/** performance.now() of the earliest moment the next request may leave. */
+let nextTurn = 0
+/** By the same key as `inFlight`: when that clause's latest request left, or is due to. */
+const turns = new Map<string, number>()
+
+// Remembered by the words as well as the clause: a different agreement file is a different question.
+const keyOf = (clause: AgreementClause) => `${clause.clause_id}\n${clause.source_text}`
+
+/**
+ * The extraction for a clause, requested at most once per page load, and never
+ * closer than REQUEST_SPACING_MS to the request before it. The result is labelled
+ * by what actually served it, and stamped with when its request really left.
  *
  * `fresh` drops the remembered result and asks again.
  */
 export function extractionFor(clause: AgreementClause, fresh = false): Promise<Extraction> {
-  // Remembered by the words as well as the clause: a different agreement file is a different question.
-  const key = `${clause.clause_id}\n${clause.source_text}`
+  const key = keyOf(clause)
   const known = inFlight.get(key)
   if (known && !fresh) return known
-  const request = requestExtraction(clause, AbortSignal.timeout(CLIENT_TIMEOUT_MS))
+  const now = performance.now()
+  const leaves = Math.max(now, nextTurn)
+  nextTurn = leaves + REQUEST_SPACING_MS
+  turns.set(key, leaves)
+  // The time limit starts when the request leaves, so a clause that waited its turn still gets all of it.
+  const send = () => requestExtraction(clause, AbortSignal.timeout(CLIENT_TIMEOUT_MS))
+  const request = leaves > now ? new Promise<void>((go) => setTimeout(go, leaves - now)).then(send) : send()
   inFlight.set(key, request)
   return request
 }
+
+/** performance.now() when this clause's request left, or is due to leave. null: it has not been asked for. */
+export const askedAtFor = (clause: AgreementClause): number | null => turns.get(keyOf(clause)) ?? null
 
 /** True when asking again could plausibly produce a live result. */
 export function canRetryLive(e: Extraction): boolean {
