@@ -92,8 +92,8 @@ export function clock12(hhmm: string): string {
 }
 
 const OFFICE_NAMES: Record<string, string> = { london: 'London', new_york: 'New York', toronto: 'Toronto' }
-const officeName = (entity: string) => OFFICE_NAMES[entity] ?? entity
-const zoneCity = (zone: string) => zone.split('/')[1]!.replace(/_/g, ' ')
+export const officeName = (entity: string) => OFFICE_NAMES[entity] ?? entity
+export const zoneCity = (zone: string) => zone.split('/')[1]!.replace(/_/g, ' ')
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five']
 const businessDays = (n: number) => `${NUMBER_WORDS[n] ?? n} (${n}) Business Day`
 const grouped = (n: number) => n.toLocaleString('en-US')

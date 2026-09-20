@@ -16,7 +16,7 @@ import { applyRepairs } from '@/domain/repair'
 import { buildComparisonPacket } from '@/documents/bundle'
 import { evidenceForCheck, type EvidencePassage } from '@/documents/citations'
 import { checkIntake, rememberIntake, rememberedIntake, sampleIntakeFiles, type IntakeFile } from '@/documents/intake'
-import { locateTerm } from '@/documents/locate'
+import { locateFailing } from '@/documents/locate'
 import { extractionFor, type Extraction } from '@/lib/extractClient'
 import { readIntakeFile } from '@/lib/dropFiles'
 import { countDecisions, ms, seconds } from '@/lib/runFormat'
@@ -74,6 +74,10 @@ export function Dryrun() {
   const clauses = useMemo(() => [...run.clauses].sort((a, b) => a.clause.start - b.clause.start), [run.clauses])
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  /** The card under the cursor or holding keyboard focus. */
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  /** The intake file open in the reader before a run. */
+  const [reading, setReading] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ clauseId: string; checkIndex: number } | null>(null)
   const [procedure, setProcedure] = useState<EvidencePassage | null>(null)
   const [retests, setRetests] = useState<Record<string, Evaluated>>({})
@@ -224,19 +228,25 @@ export function Dryrun() {
 
   const doc = (procedure && packet?.documents.find((d) => d.meta.document_id === procedure.document_id)) || packet?.agreement || null
 
+  // The card under the cursor, else the open one, once its verdict is stamped: a mark never gets ahead of its card.
+  const markedId = [hoveredId, expandedId].find((id) => id !== null && cards.some((c) => c.id === id && c.stamped)) ?? null
   const spans = useMemo<ToneSpan[]>(() => {
-    if (!focus || !packet || !citations || !doc) return []
-    const review = clauses.find((c) => c.clause.clause_id === focus.clauseId)
-    const check = review?.evaluated && decisivePath(review.evaluated)?.checks[focus.checkIndex]
-    if (!review || !check) return []
+    if (!packet || !citations || !doc) return []
     if (doc.meta.kind === 'agreement') {
-      const term = locateTerm(review.clause.source_text, review.clause.start, check.field)
-      return term ? [{ ...term, tone: TONE[check.verdict] }] : []
+      // Every term of that clause that did not pass, in the agreement's own words. No click asks for it.
+      const review = clauses.find((c) => c.clause.clause_id === markedId)
+      const checks = review?.evaluated && decisivePath(review.evaluated)?.checks
+      if (!review || !checks) return []
+      return locateFailing(review.clause.source_text, review.clause.start, checks).map((t) => ({ ...t, tone: TONE[t.verdict] }))
     }
+    // A procedure is only open because one check cited it: its evidence for that check.
+    const review = focus && clauses.find((c) => c.clause.clause_id === focus.clauseId)
+    const check = review && review.evaluated && decisivePath(review.evaluated)?.checks[focus.checkIndex]
+    if (!check) return []
     return evidenceForCheck(check, citations, graph)
       .filter((p) => p.document_id === doc.meta.document_id)
       .flatMap((p) => p.highlights.map((h) => ({ ...h, tone: TONE[check.verdict] })))
-  }, [focus, packet, citations, doc, clauses, graph])
+  }, [markedId, focus, packet, citations, doc, clauses, graph])
 
   const goTo = (docId: string, start: number, card: string | null) =>
     setJump((j) => ({ anchor: paragraphAnchor(docId, start), card, n: (j?.n ?? 0) + 1 }))
@@ -417,8 +427,15 @@ export function Dryrun() {
         <IntakePanel
           intake={intake}
           readError={run.readError}
+          reading={reading}
+          onRead={setReading}
           onFiles={addFiles}
-          onSample={() => setFiles(sampleIntakeFiles())}
+          onSample={() => {
+            // Nobody has seen the sample's files, so the agreement opens: what is about to be tested, before Run.
+            const sample = sampleIntakeFiles()
+            setFiles(sample)
+            setReading(checkIntake(sample, version).entries.find((e) => e.doc?.meta.kind === 'agreement')?.file ?? null)
+          }}
           onRemove={(file) => setFiles((prev) => prev.filter((f) => f.file !== file))}
           onClear={() => setFiles([])}
         />
@@ -560,6 +577,7 @@ export function Dryrun() {
                     retest={retests[id] ?? null}
                     pacing={{ t, askedAt, repairT, still }}
                     onToggle={() => selectClause(id, 'card')}
+                    onHover={(over) => setHoveredId((h) => (over ? id : h === id ? null : h))}
                     onApply={() => applyFix(id)}
                     onOpenAgreement={(checkIndex) => {
                       setFocus({ clauseId: id, checkIndex })

@@ -52,6 +52,7 @@ export function AgreementPane({
   spans,
   onSelectClause,
   onBack,
+  backLabel = 'Back to the agreement',
 }: {
   doc: PacketDocument
   clauses: ClauseReview[]
@@ -69,6 +70,7 @@ export function AgreementPane({
   onSelectClause: (clauseId: string) => void
   /** Present when a procedure is open: the way back to the agreement. */
   onBack: (() => void) | null
+  backLabel?: string
 }) {
   const isAgreement = doc.meta.kind === 'agreement'
   const byStart = new Map(isAgreement ? clauses.map((c) => [c.clause.start, c]) : [])
@@ -82,7 +84,7 @@ export function AgreementPane({
           {onBack && (
             <>
               <button type="button" onClick={onBack} className="text-ink-soft underline underline-offset-2 hover:text-ink">
-                Back to the agreement
+                {backLabel}
               </button>
               {' · '}
             </>

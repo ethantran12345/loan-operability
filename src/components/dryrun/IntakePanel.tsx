@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, FileQuestion, FolderOpen, Upload, X } from 'lucide-react'
 import { DocumentRow, versionLabel } from '@/components/workspace/DocumentTray'
+import { AgreementPane } from './AgreementPane'
 import type { Intake, IntakeEntry } from '@/documents/intake'
 import { SUPPORTED_FORMAT, UNSUPPORTED_FORMATS, type RequiredDocument } from '@/documents/packet'
 import { cn } from '@/lib/cn'
 import { filesFromDrop } from '@/lib/dropFiles'
 
+const NONE: ReadonlySet<string> = new Set()
 const kilobytes = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`)
 
 /**
  * Where a run starts: the analyst hands over the deal files, and each one is
  * read, parsed and hashed as it lands. The tray only ever describes the text of
  * the file it was given. The sample packet is a separate control and is labelled
- * as the sample on every row.
+ * as the sample on every row. Any file that parsed opens in the reader, so the
+ * packet can be read before it is run.
  */
 export function IntakePanel({
   intake,
   readError,
+  reading,
+  onRead,
   onFiles,
   onSample,
   onRemove,
@@ -25,6 +30,9 @@ export function IntakePanel({
   intake: Intake
   /** The run's own read of the packet refusing it, should that ever disagree with the intake check. */
   readError: string | null
+  /** The file open in the reader, by name. null: the drop zone. */
+  reading: string | null
+  onRead: (file: string | null) => void
   onFiles: (files: File[]) => void
   onSample: () => void
   onRemove: (file: string) => void
@@ -67,6 +75,8 @@ export function IntakePanel({
   const unused = intake.entries.filter((e) => e.status === 'unused')
   const rejected = intake.entries.filter((e) => e.status === 'rejected')
   const blockers = [...intake.blockers, ...(readError && intake.ready ? [readError] : [])]
+  // A drag takes the drop zone back, so the target is on screen while files are over the window.
+  const open = dragging ? null : (intake.entries.find((e) => e.file === reading)?.doc ?? null)
 
   const remove = (e: IntakeEntry) =>
     !sample && (
@@ -76,7 +86,13 @@ export function IntakePanel({
     )
 
   const row = (e: IntakeEntry) => (
-    <li key={e.file} data-intake={e.status} data-source={e.source} className="flex items-start rounded-md px-2.5 py-1.5">
+    <li
+      key={e.file}
+      data-intake={e.status}
+      data-source={e.source}
+      className={cn('flex items-start rounded-md border transition-colors', open && e.file === reading ? 'border-accent/50 bg-accent-soft' : 'border-transparent hover:bg-rule-soft')}
+    >
+      <button type="button" data-control="read" aria-pressed={open !== null && e.file === reading} title={`Read ${e.file}`} onClick={() => onRead(e.file)} className="min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left">
       <DocumentRow kind={e.doc!.meta.kind} title={e.doc!.meta.title} identity={`${e.doc!.meta.document_id} · ${versionLabel(e.doc!.meta.version)}`} muted={e.status === 'unused'}>
         <span className="mt-0.5 block font-mono text-[0.68rem] break-all text-ink-soft">{e.file}</span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.7rem] text-ink-soft">
@@ -95,6 +111,7 @@ export function IntakePanel({
           {e.source === 'sample' && <span className="rounded bg-accent-soft px-1 font-semibold text-accent">Sample · bundled</span>}
         </span>
       </DocumentRow>
+      </button>
       {remove(e)}
     </li>
   )
@@ -116,6 +133,24 @@ export function IntakePanel({
   const heading = 'px-2.5 pt-1 pb-1 text-[0.68rem] font-semibold tracking-wide text-ink-faint uppercase'
   return (
     <main id="main" className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_28.75rem]">
+      {open ? (
+        <section aria-label={open.meta.title} className="min-h-0 min-w-0">
+          <AgreementPane
+            doc={open}
+            clauses={[]}
+            found={NONE}
+            swept={NONE}
+            stamped={NONE}
+            still
+            retested={{}}
+            selectedClauseId={null}
+            spans={[]}
+            onSelectClause={() => {}}
+            onBack={() => onRead(null)}
+            backLabel="Close document"
+          />
+        </section>
+      ) : (
       <section aria-label="Hand over the deal packet" className="flex min-h-0 min-w-0 flex-col p-6">
         <div
           data-testid="drop-zone"
@@ -163,6 +198,7 @@ export function IntakePanel({
           </button>
         </div>
       </section>
+      )}
 
       <aside aria-label="Files handed over" className="flex min-h-0 flex-col border-l border-rule bg-sheet">
         <div className="flex shrink-0 items-center gap-2 border-b border-rule-soft px-4 py-2">

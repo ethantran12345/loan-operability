@@ -4,7 +4,8 @@ import { TRANSACTION_TIME, agreement, cachedExtraction, capabilityGraphs } from 
 import type { CapabilityGraph } from '../../domain/types'
 import { buildComparisonPacket, COMPARISON_QUESTION } from '../bundle'
 import { clock12, evidenceForCheck, longDate, verifyCitations } from '../citations'
-import { locateTerm, supportedElsewhere } from '../locate'
+import { proposeRepairs } from '../../domain/repair'
+import { diffWording, draftTerm, locateFailing, locateTerm, supportedElsewhere } from '../locate'
 import { readPacket } from '../packet'
 import { PacketFormatError, findParagraph, parseDocument } from '../parse'
 
@@ -187,6 +188,60 @@ describe('evidence for findings', () => {
     expect(locateTerm(clause.source_text, clause.start, 'notice_channel')).toBeNull()
     expect(locateTerm(clause.source_text, clause.start, 'required_fields')).toBeNull()
     expect(locateTerm(clause.source_text, clause.start, 'timing.notice_cutoff')!.text).toBe('11:00 A.M.')
+  })
+
+  it('marks every failing term the clause states, once, and nothing for a finding that is not in its words', () => {
+    const { packet, decisive } = run('credit-agreement-2.03-a', 7)
+    const clause = packet.clauses.find((c) => c.clause_id === 'credit-agreement-2.03-a')!
+    const marked = locateFailing(clause.source_text, clause.start, decisive.checks)
+    expect(marked.map((m) => [m.text, m.verdict])).toEqual([
+      ['EUR 40,000,000', 'FAIL'],
+      ['11:00 A.M.', 'FAIL'],
+      ['any Lending Office', 'FAIL'],
+    ])
+    for (const m of marked) expect(packet.agreement.raw.slice(m.start, m.end)).toBe(m.text)
+
+    const emailed = run('credit-agreement-2.02-c', 7)
+    const emailClause = emailed.packet.clauses.find((c) => c.clause_id === 'credit-agreement-2.02-c')!
+    expect(locateFailing(emailClause.source_text, emailClause.start, emailed.decisive.checks).map((m) => [m.text, m.verdict])).toEqual([['electronic mail', 'MANUAL']])
+
+    // The expired approval is the bank's, not the clause's: no words to mark. A PASS marks nothing either.
+    for (const id of ['credit-agreement-2.03-c', 'credit-agreement-2.03-b']) {
+      const other = run(id, 7)
+      const c = other.packet.clauses.find((x) => x.clause_id === id)!
+      expect(locateFailing(c.source_text, c.start, other.decisive.checks)).toEqual([])
+    }
+  })
+
+  it('writes each proposal as a change to the clause wording, in words the agreement itself would locate', () => {
+    const { packet, result, graph } = run('credit-agreement-2.03-a', 7)
+    const clause = packet.clauses.find((c) => c.clause_id === 'credit-agreement-2.03-a')!
+    const plan = proposeRepairs(cachedExtraction('credit-agreement-2.03-a').requirements[0]!, result, graph)
+    const diffs = Object.fromEntries(plan.proposals.map((p) => [p.field, diffWording(clause.source_text, p)]))
+
+    const cut = (field: string, side: 'before' | 'after') => {
+      const s = diffs[field]![side]!
+      return s.text.slice(s.mark.start, s.mark.end)
+    }
+    expect([cut('amount.value', 'before'), cut('amount.value', 'after')]).toEqual(['EUR 40,000,000', 'EUR 25,000,000'])
+    expect([cut('timing.notice_cutoff', 'before'), cut('timing.notice_cutoff', 'after')]).toEqual(['11:00 A.M.', '9:30 A.M. London time'])
+    expect([cut('booking_entity', 'before'), cut('booking_entity', 'after')]).toEqual(['any Lending Office', 'the London Lending Office'])
+    // What the clause never stated is an addition: nothing is quoted on the left.
+    expect(diffs.notice_channel!.before).toBeNull()
+    expect(diffs.required_fields!.before).toBeNull()
+    expect(diffs.notice_channel!.after.text).toBe("through the Agent's electronic portal")
+
+    for (const p of plan.proposals) {
+      const d = diffs[p.field]!
+      // Only the marked words differ between the two sides, and the left side is the clause verbatim.
+      if (d.before) {
+        expect(clause.source_text).toContain(d.before.text)
+        expect(d.after.text.slice(0, d.after.mark.start)).toBe(d.before.text.slice(0, d.before.mark.start))
+        expect(d.after.text.slice(d.after.mark.end)).toBe(d.before.text.slice(d.before.mark.end))
+      }
+      // The drafted words are ones locateTerm reads back as that same term.
+      expect(locateTerm(draftTerm(p), 0, p.field)).not.toBeNull()
+    }
   })
 
   it('cites the procedure and then the register for the expired Treasury authority', () => {

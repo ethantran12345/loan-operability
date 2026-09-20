@@ -1,13 +1,14 @@
 // Agreement-side evidence: where in a clause's own words a checked term is stated,
 // and whether a term that fails on the decisive route is supported somewhere else.
 //
-// Both functions are pure. Neither decides anything: the verdicts they describe
-// come from the evaluator's own comparators.
+// Every function is pure. None decides anything: the verdicts they describe come
+// from the evaluator's own comparators, and the values they draft from repair.ts.
 
 import { COMPARATORS } from '../domain/comparators'
+import type { RepairProposal } from '../domain/repair'
 import { isEffectiveAt } from '../domain/time'
-import type { Capability, CapabilityGraph, CheckResult, Requirement, RequirementResult } from '../domain/types'
-import type { Span } from './citations'
+import type { Capability, CapabilityGraph, CheckResult, Decision, Requirement, RequirementResult } from '../domain/types'
+import { clock12, officeName, zoneCity, type Span } from './citations'
 
 const CURRENCY_WORDS = 'Euro|US dollars|Dollars|sterling|Sterling'
 
@@ -36,6 +37,98 @@ export function locateTerm(clauseText: string, clauseStart: number, field: strin
   const m = TERM_PATTERNS[field]?.exec(clauseText)
   if (!m) return null
   return { start: clauseStart + m.index, end: clauseStart + m.index + m[0].length, text: m[0] }
+}
+
+export interface TermSpan extends Span {
+  field: string
+  verdict: Decision
+}
+
+const HARDER: Record<Decision, number> = { PASS: 0, MANUAL: 1, FAIL: 2 }
+
+/**
+ * Every term on the decisive route that did not pass, where the clause states it.
+ * Two checks can read the same words (the amount and its increment); the harder
+ * verdict marks them. A finding that is not in the clause's words marks nothing.
+ */
+export function locateFailing(clauseText: string, clauseStart: number, checks: CheckResult[]): TermSpan[] {
+  const byStart = new Map<number, TermSpan>()
+  for (const k of checks) {
+    if (k.verdict === 'PASS') continue
+    const term = locateTerm(clauseText, clauseStart, k.field)
+    if (!term) continue
+    const held = byStart.get(term.start)
+    if (!held || HARDER[k.verdict] > HARDER[held.verdict]) byStart.set(term.start, { ...term, field: k.field, verdict: k.verdict })
+  }
+  return [...byStart.values()].sort((a, b) => a.start - b.start)
+}
+
+const CHANNEL_WORDS: Record<string, string> = { portal: "through the Agent's electronic portal", email: 'by electronic mail' }
+const FIELD_WORDS: Record<string, string> = {
+  facility_id: 'the Facility',
+  amount: 'the principal amount',
+  currency: 'the currency',
+  value_date: 'the requested value date',
+}
+const listed = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`)
+
+/**
+ * A proposed value in the words this agreement uses for that term: TERM_PATTERNS
+ * read backwards. Only the wording is supplied here. The value is the proposal's
+ * own, and a term this agreement has no idiom for stays as the proposal wrote it.
+ */
+export function draftTerm(p: RepairProposal): string {
+  const { patch } = p
+  switch (patch.kind) {
+    case 'timing.cutoff':
+      return patch.timezone.includes('/') ? `${clock12(patch.cutoff)} ${zoneCity(patch.timezone)} time` : p.to
+    case 'booking_entity':
+      return `the ${officeName(patch.entity)} Lending Office`
+    case 'notice_channel':
+      return CHANNEL_WORDS[patch.channel] ?? p.to
+    case 'required_fields':
+      return `specifying ${listed(patch.fields.map((f) => FIELD_WORDS[f] ?? f.replace(/_/g, ' ')))}`
+    default:
+      return p.to
+  }
+}
+
+/** One side of a wording change: some words, and the range of them that changes. Offsets are into `text`. */
+export interface WordingSide {
+  text: string
+  mark: Span
+  /** The clause has more words before / after these. */
+  lead: boolean
+  more: boolean
+}
+
+export interface WordingDiff {
+  /** The clause's own words around the term. null: the clause does not state it, so the change is an addition. */
+  before: WordingSide | null
+  after: WordingSide
+}
+
+/**
+ * A proposal as a change to the clause's wording: the words around the failing
+ * term as they stand, and the same words with the proposed term in its place.
+ */
+export function diffWording(clauseText: string, p: RepairProposal, pad = 32): WordingDiff {
+  const draft = draftTerm(p)
+  const term = locateTerm(clauseText, 0, p.field)
+  if (!term) return { before: null, after: { text: draft, mark: { start: 0, end: draft.length, text: draft }, lead: false, more: false } }
+  let from = Math.max(0, term.start - pad)
+  let to = Math.min(clauseText.length, term.end + pad)
+  if (from > 0) from = Math.min(term.start, clauseText.indexOf(' ', from) + 1)
+  if (to < clauseText.length) to = Math.max(term.end, clauseText.lastIndexOf(' ', to))
+  const head = clauseText.slice(from, term.start)
+  const tail = clauseText.slice(term.end, to)
+  const side = (words: string): WordingSide => ({
+    text: `${head}${words}${tail}`,
+    mark: { start: head.length, end: head.length + words.length, text: words },
+    lead: from > 0,
+    more: to < clauseText.length,
+  })
+  return { before: side(term.text), after: side(draft) }
 }
 
 export interface ElsewhereSupport {

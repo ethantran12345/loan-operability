@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ArrowRight, Check, ChevronRight, User, X } from 'lucide-react'
+import { Check, ChevronRight, User, X } from 'lucide-react'
 import { Elapsed, PathSearch, Typewriter } from '@/components/run/parts'
 import { Id } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Marked, type MarkTone } from '@/components/workspace/Marked'
 import { evidenceForCheck, type CitationIndex, type EvidencePassage, type Span } from '@/documents/citations'
-import { locateTerm } from '@/documents/locate'
+import { diffWording, locateTerm, type WordingSide } from '@/documents/locate'
+import type { RepairProposal } from '@/domain/repair'
 import type { CapabilityGraph, CheckResult } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { OUTCOME_HEADLINE, bankSide, findingTitle, nextAction, requiredSide } from '@/lib/findingText'
@@ -86,6 +87,53 @@ function Passage({ heading, source, text, offset, spans, tone, note, link, onOpe
       <button type="button" onClick={onOpen} className="mt-1 text-[0.72rem] text-ink-soft underline underline-offset-2 hover:text-ink">
         {link}
       </button>
+    </div>
+  )
+}
+
+/** One side of a wording change, read like a line of a diff: a sign, the words, the changed words marked. */
+function DiffSide({ sign, side, tone, fallback }: { sign: '−' | '+'; side: WordingSide | null; tone: MarkTone; fallback: string }) {
+  return (
+    <p className="flex min-w-0 gap-1.5">
+      <span aria-hidden className={cn('font-mono text-xs leading-snug', tone === 'pass' ? 'text-pass' : 'text-fail')}>{sign}</span>
+      {side ? (
+        <span className="min-w-0 font-serif text-[0.82rem] leading-snug text-pretty">
+          {side.lead && '…'}
+          <Marked text={side.text} offset={0} spans={[{ ...side.mark, tone }]} />
+          {side.more && '…'}
+        </span>
+      ) : (
+        <span className="min-w-0 text-[0.72rem] leading-snug text-ink-soft">{fallback}</span>
+      )}
+    </p>
+  )
+}
+
+/** The proposals as changes to the clause's own wording, one row per field, each naming the capability its value came from. */
+function WordingDiffs({ clauseText, proposals }: { clauseText: string; proposals: RepairProposal[] }) {
+  return (
+    <div data-testid="wording-diff" className="mt-1.5">
+      <p className="grid grid-cols-2 gap-x-4 text-xs text-ink-faint">
+        <span>Current wording</span>
+        <span>Proposed wording</span>
+      </p>
+      <ol className="mt-1 space-y-2">
+        {proposals.map((p) => {
+          const diff = diffWording(clauseText, p)
+          return (
+            <li key={p.field} data-diff={p.field} className="border-t border-rule-soft pt-1.5">
+              <p className="mb-0.5 flex items-center gap-1.5 text-xs text-ink-soft">
+                {humanize(p.field)}
+                <Id title={p.rationale} className="whitespace-nowrap">{p.capability_id}</Id>
+              </p>
+              <div className="grid grid-cols-2 gap-x-4">
+                <DiffSide sign="−" side={diff.before} tone="fail" fallback={`Not in the clause. Read as: ${p.from}.`} />
+                <DiffSide sign="+" side={diff.after} tone="pass" fallback={p.to} />
+              </div>
+            </li>
+          )
+        })}
+      </ol>
     </div>
   )
 }
@@ -194,6 +242,8 @@ interface FindingCardProps {
   expanded: boolean
   retest: Evaluated | null
   onToggle: () => void
+  /** The cursor or keyboard focus arrived on, or left, this card. */
+  onHover: (over: boolean) => void
   onApply: () => void
   onOpenAgreement: (checkIndex: number) => void
   onOpenProcedure: (checkIndex: number, passage: EvidencePassage) => void
@@ -215,6 +265,7 @@ function LandedCard({
   expanded,
   retest,
   onToggle,
+  onHover,
   onApply,
   onOpenAgreement,
   onOpenProcedure,
@@ -263,6 +314,10 @@ function LandedCard({
     <li
       data-clause={clause.clause_id}
       data-stage={!stamped ? (counted === 0 ? 'terms' : marksShown === 0 ? 'routes' : 'marks') : repair && !flipped ? 'retesting' : 'checked'}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      onFocus={() => onHover(true)}
+      onBlur={() => onHover(false)}
       className={cn('rounded-lg border bg-sheet', expanded ? 'border-ink-faint' : 'border-rule')}
     >
       <button type="button" data-control="card" aria-expanded={expanded} disabled={!ready} onClick={onToggle} className="block w-full rounded-lg px-3.5 py-3 text-left disabled:cursor-default">
@@ -393,15 +448,7 @@ function LandedCard({
           {plan && plan.proposals.length > 0 ? (
             <div>
               <p className="text-xs font-semibold">{flipped ? 'Changes applied in the re-test' : 'Proposed changes'}</p>
-              <ul className="mt-1.5 space-y-1.5">
-                {plan.proposals.map((p) => (
-                  <li key={p.field} className="text-sm">
-                    <span className="text-ink-soft">{humanize(p.field)}: </span>
-                    <span className="text-ink-soft line-through">{p.from}</span> <ArrowRight aria-hidden className="inline size-3 text-ink-faint" />{' '}
-                    <span className="font-semibold">{p.to}</span> <Id className="whitespace-nowrap">{p.capability_id}</Id>
-                  </li>
-                ))}
-              </ul>
+              <WordingDiffs clauseText={clause.source_text} proposals={plan.proposals} />
               {retest && !flipped ? (
                 <p data-testid="retesting" className="mt-3 text-sm text-ink-soft">Re-testing the changed terms…</p>
               ) : retest ? (
