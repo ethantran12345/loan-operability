@@ -13,7 +13,7 @@
  */
 
 import { z } from 'zod'
-import { DecisionSchema } from './schema'
+import { DecisionSchema } from './schema.js'
 import type { CapabilityGraph, Decision, ExtractedClause, RequirementResult } from './types'
 
 // ---------------------------------------------------------------- the model's answer

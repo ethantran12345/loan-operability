@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Serve api/extract.ts under `npm run dev`, so the app talks to the same handler
+ * Serve api/*.ts under `npm run dev`, so the app talks to the same handlers
  * locally that Vercel runs in production. NVIDIA_API_KEY is read from the shell
  * or from .env.local; with neither, the handler serves the cached fixtures.
  */
@@ -17,11 +17,11 @@ function devApi(): Plugin {
         if (!process.env[key] && env[key]) process.env[key] = env[key]
       }
 
-      server.middlewares.use('/api/extract', async (req, res) => {
+      for (const route of ['extract', 'challenge']) server.middlewares.use(`/api/${route}`, async (req, res) => {
         try {
           const chunks: Buffer[] = []
           for await (const chunk of req) chunks.push(chunk as Buffer)
-          const mod = (await server.ssrLoadModule('/api/extract.ts')) as Record<
+          const mod = (await server.ssrLoadModule(`/api/${route}.ts`)) as Record<
             string,
             ((request: Request) => Promise<Response>) | undefined
           >
@@ -32,7 +32,7 @@ function devApi(): Plugin {
             return
           }
           const response = await handler(
-            new Request(`http://${req.headers.host ?? 'localhost'}/api/extract`, {
+            new Request(`http://${req.headers.host ?? 'localhost'}/api/${route}`, {
               method: req.method,
               headers: { 'content-type': 'application/json' },
               body: Buffer.concat(chunks),
