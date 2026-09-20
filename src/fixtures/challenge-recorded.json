@@ -1,4 +1,568 @@
 {
   "note": "Real model responses only, each recorded from a live call with the time it was made. Never write an entry by hand.",
-  "recordings": []
+  "recordings": [
+    {
+      "recorded_at": "2026-09-20T01:58:56Z",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "clause_id": "credit-agreement-2.03-a",
+      "graph_version": 7,
+      "answers": [
+        {
+          "verdict": "FAIL",
+          "reasoning": "The clause requests same-day Euro funding of up to EUR 40,000,000 with notice by 11:00 A.M. on a Business Day. No single complete path exists that satisfies all requirements: the EUR same-day funding windows (cap-010, cap-013, cap-027) have max_amount limits of EUR 25,000,000, EUR 20,000,000, and EUR 20,000,000 respectively, all below the requested EUR 40,000,000. The T+1 funding window (cap-012) does not support same-day settlement. The notice intake capabilities (cap-001, cap-002) do not enforce a 11:00 A.M. cutoff, and the booking entity capabilities (cap-025, cap-027) are entity-specific (London/New York) with currency constraints that do not align with a single path for a EUR 40M same-day draw. Additionally, the Treasury exception authority for New York EUR funding lapsed on 2026-08-31 and has not been renewed, affecting cap-013 and cap-027. No path meets the amount, settlement, and timing requirements simultaneously.",
+          "paths_considered": [
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-002",
+                "cap-010",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-010 max_amount EUR 25,000,000 insufficient for EUR 40,000,000 request; cap-001/cap-002 notice channel/field constraints do not match the 11:00 A.M. Business Day cutoff specified in the clause."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-002",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-013 and cap-027 have max_amount EUR 20,000,000 insufficient for EUR 40,000,000; cap-013 requires treasury approval (apr-021) which lapsed on 2026-08-31 and has not been renewed; notice intake capabilities do not enforce 11:00 A.M. cutoff."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-002",
+                "cap-012",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-012 is T+1 settlement, not same-day as required by the clause; max_amount USD 500,000,000 currency mismatch for EUR request."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-002",
+                "cap-011",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-011 is GBP funding window, currency mismatch for EUR request."
+            }
+          ],
+          "conflicts": [
+            {
+              "field": "max_amount",
+              "reason": "Requested EUR 40,000,000 exceeds the maximum same-day funding amounts available in all EUR-capable funding windows (cap-010: 25M, cap-013: 20M, cap-027: 20M)."
+            },
+            {
+              "field": "settlement_timing",
+              "reason": "The clause requires same-day settlement; cap-012 offers T+1 settlement, and no same-day capability supports the full requested amount."
+            },
+            {
+              "field": "notice_cutoff",
+              "reason": "The clause specifies a 11:00 A.M. Business Day notice cutoff; the notice_intake capabilities (cap-001, cap-002) constrain notice_channel to portal or email with required fields (facility_id, amount, currency, value_date) but do not enforce an 11:00 A.M. cutoff time."
+            },
+            {
+              "field": "booking_entity",
+              "reason": "No single booking_entity capability supports EUR 40,000,000 same-day funding; cap-025 is limited to London entity with EUR/GBP currency, cap-027 is New York EUR exception (lapsed treasury approval, max 20M)."
+            },
+            {
+              "field": "approval_status",
+              "reason": "Treasury exception authority (apr-021) for New York EUR funding lapsed on 2026-08-31 and has not been renewed, disabling cap-013 and cap-027 for same-day EUR funding."
+            }
+          ],
+          "proposed_fix": [
+            {
+              "field": "max_amount",
+              "value": "EUR 25000000"
+            },
+            {
+              "field": "notice_cutoff",
+              "value": "11:00 A.M."
+            },
+            {
+              "field": "settlement",
+              "value": "same_day"
+            },
+            {
+              "field": "booking_entity",
+              "value": "london"
+            }
+          ],
+          "assumptions": [
+            "The clause's 11:00 A.M. Business Day cutoff is a hard operational constraint that must be satisfied by the notice_intake capability.",
+            "The funding amount of EUR 40,000,000 must be supported by a single capability's max_amount limit without aggregation across capabilities.",
+            "The booking_entity must be consistent within a single path; entity mixing is not permitted.",
+            "All capabilities are operational as of the evaluation date 2026-09-22T14:00:00Z, with evidence verified within the last 180 days (evidence_freshness_days: 180).",
+            "The lapsed treasury approval (apr-021, effective_to: 2026-08-31) is still considered active for path evaluation unless explicitly noted otherwise, but its expiry is treated as a conflict for cap-013 and cap-027.",
+            "The clause's requirement for 'same-day settlement' maps directly to the funding_window role's settlement='same_day' constraint.",
+            "The currency of the advance (EUR) must match the currency constraint of the funding_window capability.",
+            "The lending offices (london, new_york, toronto) are the only valid booking entities, and their timezone constraints apply to cutoff times."
+          ]
+        },
+        {
+          "verdict": "FAIL",
+          "reasoning": "The clause requests same-day Euro funding with a 11:00 A.M. notice deadline. No single complete path exists that satisfies all requirements: notice_intake via portal (cap-001) requires value_date field which the clause omits; the same-day EUR funding windows (cap-010, cap-013) have cutoff times (09:30 London, 10:30 New York) that conflict with a 11:00 A.M. notice deadline in the clause, and cap-013 requires treasury approval which has lapsed. Additionally, the clause specifies same-day settlement but does not define a booking entity path for EUR. All viable paths fail at least one constraint.",
+          "paths_considered": [
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-010",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-001 requires 'value_date' field not present in clause; cap-010 cutoff 09:30 London is before 11:00 A.M. notice deadline; cap-025 is London entity but clause does not specify booking entity"
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-010",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-001 requires 'value_date' field; cap-010 cutoff 09:30 London before 11:00 A.M.; cap-027 requires EUR New York booking but notice deadline and cutoff still mismatched"
+            },
+            {
+              "capability_ids": [
+                "cap-002",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-002 is emailed notice with 1 business day SLA, not same-day; cap-013 has 10:30 New York cutoff before 11:00 A.M. notice deadline and requires treasury approval which lapsed 2026-08-31; cap-027 is New York EUR booking entity"
+            },
+            {
+              "capability_ids": [
+                "cap-002",
+                "cap-012",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-002 is emailed notice with 1 business day SLA, not same-day; cap-012 is T+1 notice funding, not same-day; cap-025 is London booking entity for EUR"
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-012",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-001 requires 'value_date' field; cap-012 is T+1 notice funding, not same-day; cap-025 is London booking entity for EUR"
+            }
+          ],
+          "conflicts": [
+            {
+              "field": "notice_deadline",
+              "reason": "Clause requires 11:00 A.M. notice deadline, but same-day EUR funding windows (cap-010, cap-013) have cutoffs of 09:30 London or 10:30 New York, both preceding the clause's deadline"
+            },
+            {
+              "field": "required_fields",
+              "reason": "cap-001 and cap-002 require 'value_date' field which is not specified in the clause"
+            },
+            {
+              "field": "booking_entity",
+              "reason": "Clause does not specify a booking entity; EUR requires London (cap-025) or New York exception (cap-027), but no path satisfies all constraints simultaneously"
+            },
+            {
+              "field": "approval_status",
+              "reason": "cap-013 requires treasury approval (apr-021) which lapsed 2026-08-31 and has not been renewed per changelog"
+            }
+          ],
+          "proposed_fix": [
+            {
+              "field": "notice_deadline",
+              "value": "09:00 A.M. on such Business Day"
+            }
+          ],
+          "assumptions": [
+            "The clause's 'Business Day' aligns with bank business days (Monday-Friday excluding holidays).",
+            "The advance amount of EUR 40,000,000 is within the bank's same-day EUR funding limits at the time of evaluation.",
+            "The currency 'Euro' refers to EUR as traded in the bank's funding windows.",
+            "The 'same-day settlement' in the clause refers to funding on the same business day as the notice.",
+            "The notice_channel is portal unless otherwise specified, as cap-001 is the only same-day notice_intake capability without manual SLA.",
+            "The required_fields for notice_intake are those listed in the capability constraints.",
+            "The effective dates of capabilities are current as of 2026-09-22T14:00:00Z.",
+            "The changelog indicates treasury exception authority for New York EUR funding lapsed 2026-08-31 and has not been renewed.",
+            "The booking entity for EUR is determined by currency constraints in cap-025 (London) and cap-027 (New York exception).",
+            "The clause's 'any Lending Office of the Administrative Agent' maps to the bank's lending offices (london, new_york, toronto)."
+          ]
+        }
+      ],
+      "raw": [
+        "{\n  \"verdict\": \"FAIL\",\n  \"reasoning\": \"The clause requests same-day Euro funding of up to EUR 40,000,000 with notice by 11:00 A.M. on a Business Day. No single complete path exists that satisfies all requirements: the EUR same-day funding windows (cap-010, cap-013, cap-027) have max_amount limits of EUR 25,000,000, EUR 20,000,000, and EUR 20,000,000 respectively, all below the requested EUR 40,000,000. The T+1 funding window (cap-012) does not support same-day settlement. The notice intake capabilities (cap-001, cap-002) do not enforce a 11:00 A.M. cutoff, and the booking entity capabilities (cap-025, cap-027) are entity-specific (London/New York) with currency constraints that do not align with a single path for a EUR 40M same-day draw. Additionally, the Treasury exception authority for New York EUR funding lapsed on 2026-08-31 and has not been renewed, affecting cap-013 and cap-027. No path meets the amount, settlement, and timing requirements simultaneously.\",\n  \"paths_considered\": [\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-002\", \"cap-010\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-010 max_amount EUR 25,000,000 insufficient for EUR 40,000,000 request; cap-001/cap-002 notice channel/field constraints do not match the 11:00 A.M. Business Day cutoff specified in the clause.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-002\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-013 and cap-027 have max_amount EUR 20,000,000 insufficient for EUR 40,000,000; cap-013 requires treasury approval (apr-021) which lapsed on 2026-08-31 and has not been renewed; notice intake capabilities do not enforce 11:00 A.M. cutoff.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-002\", \"cap-012\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-012 is T+1 settlement, not same-day as required by the clause; max_amount USD 500,000,000 currency mismatch for EUR request.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-002\", \"cap-011\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-011 is GBP funding window, currency mismatch for EUR request.\"\n    }\n  ],\n  \"conflicts\": [\n    {\n      \"field\": \"max_amount\",\n      \"reason\": \"Requested EUR 40,000,000 exceeds the maximum same-day funding amounts available in all EUR-capable funding windows (cap-010: 25M, cap-013: 20M, cap-027: 20M).\"\n    },\n    {\n      \"field\": \"settlement_timing\",\n      \"reason\": \"The clause requires same-day settlement; cap-012 offers T+1 settlement, and no same-day capability supports the full requested amount.\"\n    },\n    {\n      \"field\": \"notice_cutoff\",\n      \"reason\": \"The clause specifies a 11:00 A.M. Business Day notice cutoff; the notice_intake capabilities (cap-001, cap-002) constrain notice_channel to portal or email with required fields (facility_id, amount, currency, value_date) but do not enforce an 11:00 A.M. cutoff time.\"\n    },\n    {\n      \"field\": \"booking_entity\",\n      \"reason\": \"No single booking_entity capability supports EUR 40,000,000 same-day funding; cap-025 is limited to London entity with EUR/GBP currency, cap-027 is New York EUR exception (lapsed treasury approval, max 20M).\"\n    },\n    {\n      \"field\": \"approval_status\",\n      \"reason\": \"Treasury exception authority (apr-021) for New York EUR funding lapsed on 2026-08-31 and has not been renewed, disabling cap-013 and cap-027 for same-day EUR funding.\"\n    }\n  ],\n  \"proposed_fix\": [\n    {\n      \"field\": \"max_amount\",\n      \"value\": \"EUR 25000000\"\n    },\n    {\n      \"field\": \"notice_cutoff\",\n      \"value\": \"11:00 A.M.\"\n    },\n    {\n      \"field\": \"settlement\",\n      \"value\": \"same_day\"\n    },\n    {\n      \"field\": \"booking_entity\",\n      \"value\": \"london\"\n    }\n  ],\n  \"assumptions\": [\n    \"The clause's 11:00 A.M. Business Day cutoff is a hard operational constraint that must be satisfied by the notice_intake capability.\",\n    \"The funding amount of EUR 40,000,000 must be supported by a single capability's max_amount limit without aggregation across capabilities.\",\n    \"The booking_entity must be consistent within a single path; entity mixing is not permitted.\",\n    \"All capabilities are operational as of the evaluation date 2026-09-22T14:00:00Z, with evidence verified within the last 180 days (evidence_freshness_days: 180).\",\n    \"The lapsed treasury approval (apr-021, effective_to: 2026-08-31) is still considered active for path evaluation unless explicitly noted otherwise, but its expiry is treated as a conflict for cap-013 and cap-027.\",\n    \"The clause's requirement for 'same-day settlement' maps directly to the funding_window role's settlement='same_day' constraint.\",\n    \"The currency of the advance (EUR) must match the currency constraint of the funding_window capability.\",\n    \"The lending offices (london, new_york, toronto) are the only valid booking entities, and their timezone constraints apply to cutoff times.\"\n  ]\n}",
+        "{\n  \"verdict\": \"FAIL\",\n  \"reasoning\": \"The clause requests same-day Euro funding with a 11:00 A.M. notice deadline. No single complete path exists that satisfies all requirements: notice_intake via portal (cap-001) requires value_date field which the clause omits; the same-day EUR funding windows (cap-010, cap-013) have cutoff times (09:30 London, 10:30 New York) that conflict with a 11:00 A.M. notice deadline in the clause, and cap-013 requires treasury approval which has lapsed. Additionally, the clause specifies same-day settlement but does not define a booking entity path for EUR. All viable paths fail at least one constraint.\",\n  \"paths_considered\": [\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-010\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-001 requires 'value_date' field not present in clause; cap-010 cutoff 09:30 London is before 11:00 A.M. notice deadline; cap-025 is London entity but clause does not specify booking entity\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-010\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-001 requires 'value_date' field; cap-010 cutoff 09:30 London before 11:00 A.M.; cap-027 requires EUR New York booking but notice deadline and cutoff still mismatched\"\n    },\n    {\n      \"capability_ids\": [\"cap-002\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-002 is emailed notice with 1 business day SLA, not same-day; cap-013 has 10:30 New York cutoff before 11:00 A.M. notice deadline and requires treasury approval which lapsed 2026-08-31; cap-027 is New York EUR booking entity\"\n    },\n    {\n      \"capability_ids\": [\"cap-002\", \"cap-012\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-002 is emailed notice with 1 business day SLA, not same-day; cap-012 is T+1 notice funding, not same-day; cap-025 is London booking entity for EUR\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-012\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-001 requires 'value_date' field; cap-012 is T+1 notice funding, not same-day; cap-025 is London booking entity for EUR\"\n    }\n  ],\n  \"conflicts\": [\n    {\n      \"field\": \"notice_deadline\",\n      \"reason\": \"Clause requires 11:00 A.M. notice deadline, but same-day EUR funding windows (cap-010, cap-013) have cutoffs of 09:30 London or 10:30 New York, both preceding the clause's deadline\"\n    },\n    {\n      \"field\": \"required_fields\",\n      \"reason\": \"cap-001 and cap-002 require 'value_date' field which is not specified in the clause\"\n    },\n    {\n      \"field\": \"booking_entity\",\n      \"reason\": \"Clause does not specify a booking entity; EUR requires London (cap-025) or New York exception (cap-027), but no path satisfies all constraints simultaneously\"\n    },\n    {\n      \"field\": \"approval_status\",\n      \"reason\": \"cap-013 requires treasury approval (apr-021) which lapsed 2026-08-31 and has not been renewed per changelog\"\n    }\n  ],\n  \"proposed_fix\": [\n    {\n      \"field\": \"notice_deadline\",\n      \"value\": \"09:00 A.M. on such Business Day\" }\n  ],\n  \"assumptions\": [\n    \"The clause's 'Business Day' aligns with bank business days (Monday-Friday excluding holidays).\",\n    \"The advance amount of EUR 40,000,000 is within the bank's same-day EUR funding limits at the time of evaluation.\",\n    \"The currency 'Euro' refers to EUR as traded in the bank's funding windows.\",\n    \"The 'same-day settlement' in the clause refers to funding on the same business day as the notice.\",\n    \"The notice_channel is portal unless otherwise specified, as cap-001 is the only same-day notice_intake capability without manual SLA.\",\n    \"The required_fields for notice_intake are those listed in the capability constraints.\",\n    \"The effective dates of capabilities are current as of 2026-09-22T14:00:00Z.\",\n    \"The changelog indicates treasury exception authority for New York EUR funding lapsed 2026-08-31 and has not been renewed.\",\n    \"The booking entity for EUR is determined by currency constraints in cap-025 (London) and cap-027 (New York exception).\",\n    \"The clause's 'any Lending Office of the Administrative Agent' maps to the bank's lending offices (london, new_york, toronto).\"\n  ]\n}"
+      ],
+      "latency_ms": [
+        85615,
+        30855
+      ]
+    },
+    {
+      "recorded_at": "2026-09-20T02:04:26Z",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "clause_id": "credit-agreement-2.03-c",
+      "graph_version": 7,
+      "answers": [
+        {
+          "verdict": "FAIL",
+          "reasoning": "The clause requests a same-day Euro advance of up to EUR 20,000,000 through the New York Lending Office. No single complete path exists that satisfies all required roles (notice_intake, funding_window, booking_entity) simultaneously under the constraints. The primary blocker is the funding_window: the same-day EUR funding windows (cap-010, cap-013) have max_amount limits of EUR 25,000,000 and EUR 20,000,000 respectively, but cap-010 is London-timed (cutoff 09:30 Europe/London) and cap-013 requires treasury approval (which lapsed 2026-08-31 per changelog) and is also London-timed. The New York same-day EUR window (cap-009) is USD-only. The notice_intake portal (cap-001) can satisfy the notice requirement with the correct fields, but the funding window cannot simultaneously meet the same-day EUR, New York location, and EUR 20M amount constraints without exceeding limits or requiring lapsed approvals. The booking_entity must be New York for USD or London for EUR, but the funding path is incompatible. Therefore, the clause cannot be operationally executed as drafted.",
+          "paths_considered": [
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-009",
+                "cap-024"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-009 is USD-only; cannot fund a Euro advance."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-010",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-010 is London-timed (cutoff 09:30 Europe/London); the clause specifies New York Lending Office and 10:00 A.M. New York time. Time-zone mismatch prevents same-day execution under the clause's terms."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-013 requires treasury approval; approval apr-021 effective_to 2026-08-31 has lapsed and not been renewed per changelog. Additionally, cap-013 is London-timed, conflicting with the New York Lending Office specification."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-012",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-012 is T+1 notice funding (notice_lead_business_days: 1); the clause requires same-day settlement. Also, cap-012 has no New York/EUR same-day capability."
+            },
+            {
+              "capability_ids": [
+                "cap-002",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-002 is emailed notice (manual path, requires callback authentication); the clause specifies delivery through the Agent's electronic portal. Also, cap-013 has lapsed treasury approval and London time-zone."
+            }
+          ],
+          "conflicts": [
+            {
+              "field": "funding_window_currency_and_location",
+              "reason": "No funding_window capability supports same-day EUR funding through the New York Lending Office. cap-009 is USD-only; cap-010 and cap-013 are London-timed."
+            },
+            {
+              "field": "funding_window_amount_limit",
+              "reason": "The clause requests up to EUR 20,000,000. cap-010 max_amount is EUR 25,000,000 but is London-timed. cap-013 max_amount is EUR 20,000,000 but requires lapsed treasury approval and is London-timed."
+            },
+            {
+              "field": "notice_intake_channel",
+              "reason": "The clause requires portal delivery; cap-001 satisfies this, but cap-002 (email) does not match the drafted requirement."
+            },
+            {
+              "field": "booking_entity_currency_and_location",
+              "reason": "cap-024 books USD in New York; cap-025 books EUR in London. No single booking_entity capability supports EUR booking in New York within the same path as a compatible funding window."
+            }
+          ],
+          "proposed_fix": [
+            {
+              "field": "funding_window",
+              "value": "Revise clause to specify same-day EUR funding through the London Lending Office, or revise to use a T+1 notice funding window through New York if same-day is not mandatory."
+            },
+            {
+              "field": "booking_entity",
+              "value": "If funding is redirected to London, change booking_entity to 'london' to match cap-025. If funding remains New York, change currency to USD to match cap-024."
+            },
+            {
+              "field": "notice_delivery",
+              "value": "Clarify that notice must be delivered via the Agent's electronic portal (cap-001) to satisfy the notice_intake role."
+            }
+          ],
+          "assumptions": [
+            "The clause's 'New York Lending Office' specification refers to the bank's operational entity 'new_york' in the capability graph.",
+            "The clause's '10:00 A.M. New York time' cutoff must align with the funding_window cutoff times, which are defined in their respective timezones (America/New_York or Europe/London).",
+            "The EUR 20,000,000 amount is within the max_amount limits of cap-010 (25M) and cap-013 (20M) individually, but the time-zone and approval constraints override the raw amount capacity.",
+            "The changelog entry indicating treasury exception authority lapsed 2026-08-31 means approval apr-021 is no longer valid as of 2026-09-22T14:00:00Z.",
+            "A complete operating path requires exactly one capability of each role (notice_intake, funding_window, booking_entity) that together satisfy all constraints on the same path; constraints from different capabilities cannot be combined."
+          ]
+        },
+        {
+          "verdict": "FAIL",
+          "reasoning": "The clause requests a same-day Euro advance of up to EUR 20,000,000 through the New York Lending Office. No single complete path exists that satisfies all requirements: notice_intake requires portal delivery by 10:00 AM NY time, funding_window requires same-day EUR funding with a 09:30 London cutoff (cap-010 capped at EUR 25M, but timezone mismatch), and the New York same-day exception (cap-013) is capped at EUR 20M but requires treasury approval whose authority lapsed on 2026-08-31. Additionally, booking_entity must be London for EUR (cap-025) or a New York exception (cap-027), but cap-013's funding path does not align with a compatible booking entity path under the same notice. The clause's 10:00 AM NY cutoff cannot be met by cap-010's 09:30 London cutoff, and cap-013's treasury approval is expired. Therefore, the clause cannot be operationally executed as drafted.",
+          "paths_considered": [
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-009",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-001 (portal notice intake) succeeds, cap-009 (same-day USD funding) fails because currency is USD not EUR, and cap-025 (London booking entity) is correct for EUR but funding path is invalid due to currency mismatch."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-010",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-001 (portal notice intake) succeeds, cap-010 (same-day EUR funding) has a 09:30 London cutoff which does not align with the clause's 10:00 AM New York time cutoff, and cap-025 (London booking entity) is correct for EUR currency, but the timezone cutoff mismatch causes failure."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-001 (portal notice intake) succeeds, cap-013 (New York EUR same-day exception) is capped at EUR 20M and matches the amount, but requires treasury approval (apr-021) which expired on 2026-08-31 per the changelog. cap-027 (New York EUR booking exception) is compatible with cap-013, but the expired approval prevents PASS."
+            },
+            {
+              "capability_ids": [
+                "cap-002",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-002 (emailed notice) is a manual path requiring callback authentication and approvals from loan operations and product owner, which does not match the clause's requirement of portal delivery by 10:00 AM, and cap-013's treasury approval is expired."
+            }
+          ],
+          "conflicts": [
+            {
+              "field": "notice_cutoff_timezone",
+              "reason": "Clause requires notice by 10:00 AM New York time, but same-day EUR funding windows (cap-010, cap-013) operate on London or New York cutoffs that do not align with the 10:00 AM NY deadline for same-day processing."
+            },
+            {
+              "field": "funding_amount_cap",
+              "reason": "cap-010 caps same-day EUR funding at EUR 25,000,000 with 09:30 London cutoff; cap-013 caps New York EUR exception at EUR 20,000,000 but requires expired treasury approval. The clause's EUR 20,000,000 amount is at the cap of cap-013 but that approval is lapsed."
+            },
+            {
+              "field": "treasury_approval_status",
+              "reason": "apr-021 (treasury approval for New York EUR same-day exception) has effective_to 2026-08-31 and is lapsed as of 2026-09-22, making cap-013 non-operational."
+            },
+            {
+              "field": "booking_entity_currency_match",
+              "reason": "The clause specifies New York Lending Office but EUR funding requires London booking entity (cap-025) or a New York exception (cap-027). No single path combines a New York notice intake with a London booking entity under the same funding window constraints."
+            }
+          ],
+          "proposed_fix": [
+            {
+              "field": "currency",
+              "value": "USD"
+            },
+            {
+              "field": "funding_window",
+              "value": "T-1 notice funding window (cap-012)"
+            },
+            {
+              "field": "notice_delivery",
+              "value": "portal by 10:00 AM New York time"
+            },
+            {
+              "field": "amount",
+              "value": "EUR 20000000"
+            }
+          ],
+          "assumptions": [
+            "The clause's 'New York Lending Office' reference implies the notice must be delivered through the New York entity's portal, but the capability graph's notice_intake capabilities (cap-001, cap-002) are not entity-specific and accept portal or email channels globally.",
+            "The effective_to date of 2026-08-31 for apr-021 means treasury approval for New York EUR same-day exception is expired and not renew ed as of the evaluation date 2026-09-22.",
+            "The cutoff times for funding windows are fixed per timezone; there is no capability to adjust the 09:30 London cutoff to align with a 10:00 AM New York time deadline.",
+            "The booking_entity constraint for EUR is London (cap-025) or New York exception (cap-027), but these are tied to specific funding window capabilities and cannot be freely combined across paths.",
+            "The clause's request for same-day settlement in Euro through the New York Lending Office cannot be satisfied by any existing complete path due to cutoff, amount, and approval constraints."
+          ]
+        }
+      ],
+      "raw": [
+        "{\n  \"verdict\": \"FAIL\",\n  \"reasoning\": \"The clause requests a same-day Euro advance of up to EUR 20,000,000 through the New York Lending Office. No single complete path exists that satisfies all required roles (notice_intake, funding_window, booking_entity) simultaneously under the constraints. The primary blocker is the funding_window: the same-day EUR funding windows (cap-010, cap-013) have max_amount limits of EUR 25,000,000 and EUR 20,000,000 respectively, but cap-010 is London-timed (cutoff 09:30 Europe/London) and cap-013 requires treasury approval (which lapsed 2026-08-31 per changelog) and is also London-timed. The New York same-day EUR window (cap-009) is USD-only. The notice_intake portal (cap-001) can satisfy the notice requirement with the correct fields, but the funding window cannot simultaneously meet the same-day EUR, New York location, and EUR 20M amount constraints without exceeding limits or requiring lapsed approvals. The booking_entity must be New York for USD or London for EUR, but the funding path is incompatible. Therefore, the clause cannot be operationally executed as drafted.\",\n  \"paths_considered\": [\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-009\", \"cap-024\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-009 is USD-only; cannot fund a Euro advance.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-010\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-010 is London-timed (cutoff 09:30 Europe/London); the clause specifies New York Lending Office and 10:00 A.M. New York time. Time-zone mismatch prevents same-day execution under the clause's terms.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-013 requires treasury approval; approval apr-021 effective_to 2026-08-31 has lapsed and not been renewed per changelog. Additionally, cap-013 is London-timed, conflicting with the New York Lending Office specification.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-012\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-012 is T+1 notice funding (notice_lead_business_days: 1); the clause requires same-day settlement. Also, cap-012 has no New York/EUR same-day capability.\"\n    },\n    {\n      \"capability_ids\": [\"cap-002\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-002 is emailed notice (manual path, requires callback authentication); the clause specifies delivery through the Agent's electronic portal. Also, cap-013 has lapsed treasury approval and London time-zone.\"\n    }\n  ],\n  \"conflicts\": [\n    {\n      \"field\": \"funding_window_currency_and_location\",\n      \"reason\": \"No funding_window capability supports same-day EUR funding through the New York Lending Office. cap-009 is USD-only; cap-010 and cap-013 are London-timed.\"\n    },\n    {\n      \"field\": \"funding_window_amount_limit\",\n      \"reason\": \"The clause requests up to EUR 20,000,000. cap-010 max_amount is EUR 25,000,000 but is London-timed. cap-013 max_amount is EUR 20,000,000 but requires lapsed treasury approval and is London-timed.\"\n    },\n    {\n      \"field\": \"notice_intake_channel\",\n      \"reason\": \"The clause requires portal delivery; cap-001 satisfies this, but cap-002 (email) does not match the drafted requirement.\"\n    },\n    {\n      \"field\": \"booking_entity_currency_and_location\",\n      \"reason\": \"cap-024 books USD in New York; cap-025 books EUR in London. No single booking_entity capability supports EUR booking in New York within the same path as a compatible funding window.\"\n    }\n  ],\n  \"proposed_fix\": [\n    {\n      \"field\": \"funding_window\",\n      \"value\": \"Revise clause to specify same-day EUR funding through the London Lending Office, or revise to use a T+1 notice funding window through New York if same-day is not mandatory.\"\n    },\n    {\n      \"field\": \"booking_entity\",\n      \"value\": \"If funding is redirected to London, change booking_entity to 'london' to match cap-025. If funding remains New York, change currency to USD to match cap-024.\"\n    },\n    {\n      \"field\": \"notice_delivery\",\n      \"value\": \"Clarify that notice must be delivered via the Agent's electronic portal (cap-001) to satisfy the notice_intake role.\"\n    }\n  ],\n  \"assumptions\": [\n    \"The clause's 'New York Lending Office' specification refers to the bank's operational entity 'new_york' in the capability graph.\",\n    \"The clause's '10:00 A.M. New York time' cutoff must align with the funding_window cutoff times, which are defined in their respective timezones (America/New_York or Europe/London).\",\n    \"The EUR 20,000,000 amount is within the max_amount limits of cap-010 (25M) and cap-013 (20M) individually, but the time-zone and approval constraints override the raw amount capacity.\",\n    \"The changelog entry indicating treasury exception authority lapsed 2026-08-31 means approval apr-021 is no longer valid as of 2026-09-22T14:00:00Z.\",\n    \"A complete operating path requires exactly one capability of each role (notice_intake, funding_window, booking_entity) that together satisfy all constraints on the same path; constraints from different capabilities cannot be combined.\"\n  ]\n}",
+        "{\n  \"verdict\": \"FAIL\",\n  \"reasoning\": \"The clause requests a same-day Euro advance of up to EUR 20,000,000 through the New York Lending Office. No single complete path exists that satisfies all requirements: notice_intake requires portal delivery by 10:00 AM NY time, funding_window requires same-day EUR funding with a 09:30 London cutoff (cap-010 capped at EUR 25M, but timezone mismatch), and the New York same-day exception (cap-013) is capped at EUR 20M but requires treasury approval whose authority lapsed on 2026-08-31. Additionally, booking_entity must be London for EUR (cap-025) or a New York exception (cap-027), but cap-013's funding path does not align with a compatible booking entity path under the same notice. The clause's 10:00 AM NY cutoff cannot be met by cap-010's 09:30 London cutoff, and cap-013's treasury approval is expired. Therefore, the clause cannot be operationally executed as drafted.\",\n  \"paths_considered\": [\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-009\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-001 (portal notice intake) succeeds, cap-009 (same-day USD funding) fails because currency is USD not EUR, and cap-025 (London booking entity) is correct for EUR but funding path is invalid due to currency mismatch.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-010\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-001 (portal notice intake) succeeds, cap-010 (same-day EUR funding) has a 09:30 London cutoff which does not align with the clause's 10:00 AM New York time cutoff, and cap-025 (London booking entity) is correct for EUR currency, but the timezone cutoff mismatch causes failure.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-001 (portal notice intake) succeeds, cap-013 (New York EUR same-day exception) is capped at EUR 20M and matches the amount, but requires treasury approval (apr-021) which expired on 2026-08-31 per the changelog. cap-027 (New York EUR booking exception) is compatible with cap-013, but the expired approval prevents PASS.\"\n    },\n    {\n      \"capability_ids\": [\"cap-002\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-002 (emailed notice) is a manual path requiring callback authentication and approvals from loan operations and product owner, which does not match the clause's requirement of portal delivery by 10:00 AM, and cap-013's treasury approval is expired.\"\n    }\n  ],\n  \"conflicts\": [\n    {\n      \"field\": \"notice_cutoff_timezone\",\n      \"reason\": \"Clause requires notice by 10:00 AM New York time, but same-day EUR funding windows (cap-010, cap-013) operate on London or New York cutoffs that do not align with the 10:00 AM NY deadline for same-day processing.\"\n    },\n    {\n      \"field\": \"funding_amount_cap\",\n      \"reason\": \"cap-010 caps same-day EUR funding at EUR 25,000,000 with 09:30 London cutoff; cap-013 caps New York EUR exception at EUR 20,000,000 but requires expired treasury approval. The clause's EUR 20,000,000 amount is at the cap of cap-013 but that approval is lapsed.\"\n    },\n    {\n      \"field\": \"treasury_approval_status\",\n      \"reason\": \"apr-021 (treasury approval for New York EUR same-day exception) has effective_to 2026-08-31 and is lapsed as of 2026-09-22, making cap-013 non-operational.\"\n    },\n    {\n      \"field\": \"booking_entity_currency_match\",\n      \"reason\": \"The clause specifies New York Lending Office but EUR funding requires London booking entity (cap-025) or a New York exception (cap-027). No single path combines a New York notice intake with a London booking entity under the same funding window constraints.\"\n    }\n  ],\n  \"proposed_fix\": [\n    {\n      \"field\": \"currency\",\n      \"value\": \"USD\"\n    },\n    {\n      \"field\": \"funding_window\",\n      \"value\": \"T-1 notice funding window (cap-012)\"\n    },\n    {\n      \"field\": \"notice_delivery\",\n      \"value\": \"portal by 10:00 AM New York time\"\n    },\n    {\n      \"field\": \"amount\",\n      \"value\": \"EUR 20000000\"\n    }\n  ],\n  \"assumptions\": [\n    \"The clause's 'New York Lending Office' reference implies the notice must be delivered through the New York entity's portal, but the capability graph's notice_intake capabilities (cap-001, cap-002) are not entity-specific and accept portal or email channels globally.\",\n    \"The effective_to date of 2026-08-31 for apr-021 means treasury approval for New York EUR same-day exception is expired and not renew ed as of the evaluation date 2026-09-22.\",\n    \"The cutoff times for funding windows are fixed per timezone; there is no capability to adjust the 09:30 London cutoff to align with a 10:00 AM New York time deadline.\",\n    \"The booking_entity constraint for EUR is London (cap-025) or New York exception (cap-027), but these are tied to specific funding window capabilities and cannot be freely combined across paths.\",\n    \"The clause's request for same-day settlement in Euro through the New York Lending Office cannot be satisfied by any existing complete path due to cutoff, amount, and approval constraints.\"\n  ]\n}"
+      ],
+      "latency_ms": [
+        31295,
+        55459
+      ]
+    },
+    {
+      "recorded_at": "2026-09-20T02:06:21Z",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "clause_id": "credit-agreement-2.03-c",
+      "graph_version": 8,
+      "answers": [
+        {
+          "verdict": "FAIL",
+          "reasoning": "The clause requests same-day Euro funding through the New York Lending Office. No single capability path provides all three required roles (notice_intake, funding_window, booking_entity) with consistent New York timezone and EUR currency constraints. The available EUR funding windows (cap-010, cap-011) are London-timed; cap-013 is New York-timed but requires treasury approval and has a lower max_amount of EUR 20,000,000 which matches the clause amount but the approval apr-021 was renewed only on 2026-09-15 and the clause execution date is 2026-09-22, making it valid; however, cap-013 lacks a matching booking_entity for New York EUR. The New York EUR booking entity capability cap-027 exists but has no corresponding funding window. The USD New York funding window cap-009 is for USD not EUR. Therefore, no complete operating path exists as drafted.",
+          "paths_considered": [
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-009",
+                "cap-024"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-009 is USD-only; cap-024 is USD-only booking entity. Currency mismatch."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-010",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-010 is London-timed (Europe/London cutoff 09:30), clause requests New York Lending Office same-day settlement."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-011",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-011 is GBP-timed (Europe/London), currency and timezone mismatch."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-013 is New York EUR same-day exception window with max_amount EUR 20,000,000 matching the clause amount, effective 2025-06-01, renewed treasury approval apr-021 valid from 2026-09-15 (execution date 2026-09-22). However, cap-027 is New York EUR booking entity but cap-013 requires treasury approval and cap-027 has no corresponding funding window in the path. No complete path with all three roles."
+            },
+            {
+              "capability_ids": [
+                "cap-002",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-002 is emailed notice intake (manual), clause specifies portal delivery."
+            }
+          ],
+          "conflicts": [
+            {
+              "field": "funding_window_timezone",
+              "reason": "Clause requests New York Lending Office same-day EUR funding. Available New York EUR same-day window (cap-013) exists but is an exception window requiring treasury approval; no matching New York EUR booking entity capability exists as a paired path partner."
+            },
+            {
+              "field": "notice_intake_channel",
+              "reason": "Clause specifies delivery through Agent's electronic portal. cap-001 matches (portal notice_intake). No conflict on this field, but paths using cap-002 fail the channel constraint."
+            }
+          ],
+          "proposed_fix": [
+            {
+              "field": "funding_window",
+              "value": "cap-013 (New York EUR same-day exception window) with treasury approval active from 2026-09-15"
+            },
+            {
+              "field": "booking_entity",
+              "value": "cap-027 (New York EUR booking exception) to pair with cap-013"
+            }
+          ],
+          "assumptions": [
+            "The clause execution date is 2026-09-22T14:00:00Z.",
+            "The New York Lending Office timezone is America/New_York.",
+            "The Borrowing Notice delivery through the Agent's electronic portal satisfies the notice_intake role via cap-001.",
+            "The aggregate principal amount of EUR 20,000,000 falls within the max_amount constraint of cap-013 (EUR 20,000,000).",
+            "The treasury approval apr-021, renewed effective 2026-09-15, is active and sufficient for cap-013 requires_approval.",
+            "The notice value date and Business Day are consistent with the funding window constraints."
+          ]
+        },
+        {
+          "verdict": "FAIL",
+          "reasoning": "The clause requests a same-day Euro advance of EUR 20,000,000 through the New York Lending Office. No single complete path exists that satisfies all constraints: notice_intake requires portal delivery by 10:00 AM NY time, funding_window requires same-day EUR funding with a 09:30 London cutoff (cap-010 capped at EUR 25M) or a New York exception window (cap-013 capped at EUR 20M but requires treasury approval effective 2026-09-15 and has a 10:30 NY cutoff), and booking_entity for EUR through New York requires cap-027 (effective 2025-06-01) but the aggregate amount exceeds the cap-013/EUR 20M funding window limit. The clause's 10:00 AM NY time notice deadline cannot be satisfied by cap-010 (London 09:30 London time) or cap-013 (10:30 NY time cutoff, but approval status and amount limit are prohibitive).",
+          "paths_considered": [
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-009",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-009 is USD-only; currency mismatch for EUR 20M request."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-010",
+                "cap-025"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-010 has a 09:30 London cutoff and EUR 25M max; the clause requires same-day settlement through the New York Lending Office and the notice deadline of 10:00 AM NY time does not align with the London 09:30 cutoff."
+            },
+            {
+              "capability_ids": [
+                "cap-001",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-013 has a EUR 20M max amount limit (clause requests EUR 20,000,000, which is at the exact limit but approval apr-021 was renewed 2026-09-15 and is required; however, the notice_intake path cap-001 requires portal delivery by 10:00 AM NY time, and cap-013 has a 10:30 NY cutoff, which is chronologically possible, but the combined path fails because cap-027 booking entity for New York EUR is effective 2025-06-01 and supports the amount, yet the funding window cap-013 amount constraint of 20M is a hard ceiling and the clause requests exactly that amount, leaving no margin for amount_increment steps; additionally, the evidence freshness for cap-013 last_verified 2026-09-09 is within 180 days, but the approval apr-021 effective 2026-09-15 is required and the clause does not specify treasury approval, creating a gap)."
+            },
+            {
+              "capability_ids": [
+                "cap-002",
+                "cap-013",
+                "cap-027"
+              ],
+              "verdict": "FAIL",
+              "reason": "cap-002 is email-based notice_intake with manual authentication SLA 1 business day, which violates the clause's same-day and portal-specific requirement."
+            }
+          ],
+          "conflicts": [
+            {
+              "field": "funding_window_currency_and_location",
+              "reason": "Clause requests same-day Euro advance through New York Lending Office. Available same-day EUR funding windows are cap-010 (London, 09:30 cutoff, EUR 25M max) and cap-013 (New York exception, 10:30 cutoff, EUR 20M max, requires treasury approval). cap-013 is the only New York option but is capped at EUR 20M and requires approval apr-021 effective 2026-09-15, which is present but the clause does not mention treasury approval."
+            },
+            {
+              "field": "notice_intake_channel_and_deadline",
+              "reason": "Clause requires Borrowing Notice delivered through the Agent's electronic portal by 10:00 A.M. New York time. cap-001 supports portal intake with required fields and is effective 2025-01-01. cap-013 funding window has a 10:30 NY cutoff, which is chronologically after the 10:00 AM notice deadline, but the overall path fails on amount and approval constraints."
+            },
+            {
+              "field": "booking_entity_currency_and_entity",
+              "reason": "Clause implies New York booking for Euro. cap-025 is London booking for EUR/GBP. cap-027 is New York EUR booking exception, effective 2025-06-01, supports EUR 20M max, but the funding window cap-013 cap of EUR 20M creates a hard limit conflict with the clause's EUR 20,000,000 request."
+            }
+          ],
+          "proposed_fix": [
+            {
+              "field": "currency",
+              "value": "USD"
+            },
+            {
+              "field": "funding_window",
+              "value": "cap-009 (Same-day USD funding window, USD, same_day, max_amount 50M, cutoff 10:30 NY time)"
+            },
+            {
+              "field": "booking_entity",
+              "value": "cap-024 (New York booking entity, USD)"
+            }
+          ],
+          "assumptions": [
+            "The clause's 'same-day settlement through the New York Lending Office' implies the funding window must operate from the New York timezone.",
+            "The Borrowing Notice delivery deadline of 10:00 A.M. New York time must be met by the notice_intake capability's cutoff.",
+            "The aggregate principal amount of EUR 20,000,000 is exact and must not exceed the funding window's max_amount constraint.",
+            "The booking_entity must support EUR currency with New York as the booking entity.",
+            "All capabilities referenced are within their effective_from date and evidence_freshness (180 days from 2026-09-22).",
+            "The approval apr-021 for treasury exception authority is active effective 2026-09-15 and is required for cap-013."
+          ]
+        }
+      ],
+      "raw": [
+        "{\n  \"verdict\": \"FAIL\",\n  \"reasoning\": \"The clause requests same-day Euro funding through the New York Lending Office. No single capability path provides all three required roles (notice_intake, funding_window, booking_entity) with consistent New York timezone and EUR currency constraints. The available EUR funding windows (cap-010, cap-011) are London-timed; cap-013 is New York-timed but requires treasury approval and has a lower max_amount of EUR 20,000,000 which matches the clause amount but the approval apr-021 was renewed only on 2026-09-15 and the clause execution date is 2026-09-22, making it valid; however, cap-013 lacks a matching booking_entity for New York EUR. The New York EUR booking entity capability cap-027 exists but has no corresponding funding window. The USD New York funding window cap-009 is for USD not EUR. Therefore, no complete operating path exists as drafted.\",\n  \"paths_considered\": [\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-009\", \"cap-024\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-009 is USD-only; cap-024 is USD-only booking entity. Currency mismatch.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-010\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-010 is London-timed (Europe/London cutoff 09:30), clause requests New York Lending Office same-day settlement.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-011\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-011 is GBP-timed (Europe/London), currency and timezone mismatch.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-013 is New York EUR same-day exception window with max_amount EUR 20,000,000 matching the clause amount, effective 2025-06-01, renewed treasury approval apr-021 valid from 2026-09-15 (execution date 2026-09-22). However, cap-027 is New York EUR booking entity but cap-013 requires treasury approval and cap-027 has no corresponding funding window in the path. No complete path with all three roles.\"\n    },\n    {\n      \"capability_ids\": [\"cap-002\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-002 is emailed notice intake (manual), clause specifies portal delivery.\"\n    }\n  ],\n  \"conflicts\": [\n    {\n      \"field\": \"funding_window_timezone\",\n      \"reason\": \"Clause requests New York Lending Office same-day EUR funding. Available New York EUR same-day window (cap-013) exists but is an exception window requiring treasury approval; no matching New York EUR booking entity capability exists as a paired path partner.\"\n    },\n    {\n      \"field\": \"notice_intake_channel\",\n      \"reason\": \"Clause specifies delivery through Agent's electronic portal. cap-001 matches (portal notice_intake). No conflict on this field, but paths using cap-002 fail the channel constraint.\"\n    }\n  ],\n  \"proposed_fix\": [\n    {\n      \"field\": \"funding_window\",\n      \"value\": \"cap-013 (New York EUR same-day exception window) with treasury approval active from 2026-09-15\"\n    },\n    {\n      \"field\": \"booking_entity\",\n      \"value\": \"cap-027 (New York EUR booking exception) to pair with cap-013\"\n    }\n  ],\n  \"assumptions\": [\n    \"The clause execution date is 2026-09-22T14:00:00Z.\",\n    \"The New York Lending Office timezone is America/New_York.\",\n    \"The Borrowing Notice delivery through the Agent's electronic portal satisfies the notice_intake role via cap-001.\",\n    \"The aggregate principal amount of EUR 20,000,000 falls within the max_amount constraint of cap-013 (EUR 20,000,000).\",\n    \"The treasury approval apr-021, renewed effective 2026-09-15, is active and sufficient for cap-013 requires_approval.\",\n    \"The notice value date and Business Day are consistent with the funding window constraints.\"\n  ]\n}",
+        "{\n  \"verdict\": \"FAIL\",\n  \"reasoning\": \"The clause requests a same-day Euro advance of EUR 20,000,000 through the New York Lending Office. No single complete path exists that satisfies all constraints: notice_intake requires portal delivery by 10:00 AM NY time, funding_window requires same-day EUR funding with a 09:30 London cutoff (cap-010 capped at EUR 25M) or a New York exception window (cap-013 capped at EUR 20M but requires treasury approval effective 2026-09-15 and has a 10:30 NY cutoff), and booking_entity for EUR through New York requires cap-027 (effective 2025-06-01) but the aggregate amount exceeds the cap-013/EUR 20M funding window limit. The clause's 10:00 AM NY time notice deadline cannot be satisfied by cap-010 (London 09:30 London time) or cap-013 (10:30 NY time cutoff, but approval status and amount limit are prohibitive).\",\n  \"paths_considered\": [\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-009\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-009 is USD-only; currency mismatch for EUR 20M request.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-010\", \"cap-025\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-010 has a 09:30 London cutoff and EUR 25M max; the clause requires same-day settlement through the New York Lending Office and the notice deadline of 10:00 AM NY time does not align with the London 09:30 cutoff.\"\n    },\n    {\n      \"capability_ids\": [\"cap-001\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-013 has a EUR 20M max amount limit (clause requests EUR 20,000,000, which is at the exact limit but approval apr-021 was renewed 2026-09-15 and is required; however, the notice_intake path cap-001 requires portal delivery by 10:00 AM NY time, and cap-013 has a 10:30 NY cutoff, which is chronologically possible, but the combined path fails because cap-027 booking entity for New York EUR is effective 2025-06-01 and supports the amount, yet the funding window cap-013 amount constraint of 20M is a hard ceiling and the clause requests exactly that amount, leaving no margin for amount_increment steps; additionally, the evidence freshness for cap-013 last_verified 2026-09-09 is within 180 days, but the approval apr-021 effective 2026-09-15 is required and the clause does not specify treasury approval, creating a gap).\"\n    },\n    {\n      \"capability_ids\": [\"cap-002\", \"cap-013\", \"cap-027\"],\n      \"verdict\": \"FAIL\",\n      \"reason\": \"cap-002 is email-based notice_intake with manual authentication SLA 1 business day, which violates the clause's same-day and portal-specific requirement.\"\n    }\n  ],\n  \"conflicts\": [\n    {\n      \"field\": \"funding_window_currency_and_location\",\n      \"reason\": \"Clause requests same-day Euro advance through New York Lending Office. Available same-day EUR funding windows are cap-010 (London, 09:30 cutoff, EUR 25M max) and cap-013 (New York exception, 10:30 cutoff, EUR 20M max, requires treasury approval). cap-013 is the only New York option but is capped at EUR 20M and requires approval apr-021 effective 2026-09-15, which is present but the clause does not mention treasury approval.\"\n    },\n    {\n      \"field\": \"notice_intake_channel_and_deadline\",\n      \"reason\": \"Clause requires Borrowing Notice delivered through the Agent's electronic portal by 10:00 A.M. New York time. cap-001 supports portal intake with required fields and is effective 2025-01-01. cap-013 funding window has a 10:30 NY cutoff, which is chronologically after the 10:00 AM notice deadline, but the overall path fails on amount and approval constraints.\"\n    },\n    {\n      \"field\": \"booking_entity_currency_and_entity\",\n      \"reason\": \"Clause implies New York booking for Euro. cap-025 is London booking for EUR/GBP. cap-027 is New York EUR booking exception, effective 2025-06-01, supports EUR 20M max, but the funding window cap-013 cap of EUR 20M creates a hard limit conflict with the clause's EUR 20,000,000 request.\"\n    }\n  ],\n  \"proposed_fix\": [\n    {\n      \"field\": \"currency\",\n      \"value\": \"USD\"\n    },\n    {\n      \"field\": \"funding_window\",\n      \"value\": \"cap-009 (Same-day USD funding window, USD, same_day, max_amount 50M, cutoff 10:30 NY time)\"\n    },\n    {\n      \"field\": \"booking_entity\",\n      \"value\": \"cap-024 (New York booking entity, USD)\"\n    }\n  ],\n  \"assumptions\": [\n    \"The clause's 'same-day settlement through the New York Lending Office' implies the funding window must operate from the New York timezone.\",\n    \"The Borrowing Notice delivery deadline of 10:00 A.M. New York time must be met by the notice_intake capability's cutoff.\",\n    \"The aggregate principal amount of EUR 20,000,000 is exact and must not exceed the funding window's max_amount constraint.\",\n    \"The booking_entity must support EUR currency with New York as the booking entity.\",\n    \"All capabilities referenced are within their effective_from date and evidence_freshness (180 days from 2026-09-22).\",\n    \"The approval apr-021 for treasury exception authority is active effective 2026-09-15 and is required for cap-013.\"\n  ]\n}"
+      ],
+      "latency_ms": [
+        76701,
+        29205
+      ]
+    }
+  ]
 }
